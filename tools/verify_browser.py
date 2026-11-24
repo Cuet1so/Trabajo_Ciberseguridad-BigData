@@ -27,7 +27,7 @@ def main() -> None:
         page.on("pageerror", lambda error: errors.append(str(error)))
         response = page.goto(args.url)
         assert response and response.status == 200
-        expect(page.get_by_role("tab").first).to_be_visible(timeout=60000)
+        expect(page.get_by_role("tab", name="Fallos y Morris", exact=True)).to_be_visible(timeout=60000)
         expect(page.get_by_text("97.440", exact=True)).to_be_visible()
         expect(page.get_by_text("98.206", exact=True)).to_be_visible()
         for i, name in enumerate(("Fallos y Morris", "Mapa UMAP y grupos", "Antes y después"), 1):
@@ -36,7 +36,7 @@ def main() -> None:
             page.get_by_role("button", name="Stop", exact=True).wait_for(state="hidden", timeout=30000)
             page.get_by_test_id("stMain").evaluate("element => element.scrollTo(0, 0)")
             page.screenshot(path=str(args.screenshots/f"vista_{i}.png"), full_page=True)
-            page.get_by_role("tabpanel").evaluate("""panel => {
+            page.get_by_role("tabpanel").last.evaluate("""panel => {
                 const main = document.querySelector('[data-testid="stMain"]');
                 main.scrollTop += panel.getBoundingClientRect().top - main.getBoundingClientRect().top - 64;
             }""")

@@ -65,7 +65,7 @@ Cada inicio de CLI archiva los productos anteriores de esa raíz en `historial/<
 
 ## Inicio y simulación
 
-La aplicación abre en **Inicio**, una presentación del experimento, sus técnicas y lo que puedes descubrir. **Explorar la simulación** abre el espacio de trabajo sin generar eventos hasta que pulses Iniciar. La navegación lateral permite volver al inicio: la reproducción se pausa y conserva el progreso de la sesión. El acceso directo `-- --review .` sigue abriendo los resultados guardados.
+La aplicación abre en **Inicio**, una presentación del experimento, sus técnicas y lo que puedes descubrir. **Explorar la simulación** abre el espacio de trabajo sin generar eventos hasta que pulses Iniciar. Las pestañas superiores **Inicio / Simulación** permiten volver al inicio: la reproducción se pausa y conserva el progreso de la sesión. El acceso directo `-- --review .` sigue abriendo los resultados guardados.
 
 ## Las tres vistas
 

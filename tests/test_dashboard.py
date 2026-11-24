@@ -19,7 +19,7 @@ def test_real_dashboard_three_views_and_gateway_filter(real_run):
     app.session_state["playing"] = False
     app.run()
     assert not app.exception
-    assert len(app.tabs) == 3
+    assert len(app.tabs) == 5
     assert [m.value for m in app.metric if m.label == "Fallos exactos"] == ["97.440", "98.206"]
     assert "13,951" in " ".join(m.value for m in app.markdown)
     for gateway in ("Ámbar", "Cobalto", "Ambas"):
@@ -34,11 +34,11 @@ def test_first_display_at_300_and_no_duplicate_rerun(tmp_path):
         app.session_state["experiment"] = exp
         app.session_state["playing"] = False
         app.run()
-        assert len(app.tabs) == 0
+        assert len(app.tabs) == 2
         app.button(key="step").click().run()
         assert not app.exception
         assert exp.event_count == 300
-        assert len(app.tabs) == 3
+        assert len(app.tabs) == 5
         snapshot = exp.from_csv().copy()
         cached = app.session_state["dashboard_snapshot"][1]
         app.run()
@@ -118,7 +118,7 @@ def test_ui_review_uses_same_figures_without_generator(real_run, monkeypatch):
     app.text_input(key="review_path").set_value(str(exp.output_dir)).run()
     app.button(key="load_review").click().run()
     assert not app.exception
-    assert len(app.tabs) == 3
+    assert len(app.tabs) == 5
     assert app.session_state["reviewed"].summary["morris"]["Cobalto"]["exacto_csv"] == 98206
     assert [m.value for m in app.metric if m.label == "Fallos exactos"] == ["97.440", "98.206"]
 
