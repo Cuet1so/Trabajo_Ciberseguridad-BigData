@@ -9,6 +9,8 @@ from uuid import uuid4
 import streamlit as st
 
 from dashboard import render_dashboard
+from ui_theme import apply_theme, page_header
+from ui_runtime import UI_LOCK, serialized_ui_operation
 from detection import DetectionConfig
 from pipeline import StreamingExperiment
 from playback import PlaybackClock
@@ -18,21 +20,16 @@ parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument("--review", type=Path)
 args, _ = parser.parse_known_args()
 
-st.set_page_config(
-    page_title="Security Intelligence | Big Data",
-    page_icon="🛡️",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-# Estilos BI empaquetados localmente: no se requieren fuentes ni servicios externos.
-style_path = Path(__file__).resolve().parent / "assets" / "powerbi.css"
-st.markdown(f"<style>{style_path.read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
+st.set_page_config(page_title="Observatorio de autenticación · Big Data", page_icon="🛡️", layout="wide")
+apply_theme()
+page_header()
 if "clock" not in st.session_state:
     st.session_state.clock = PlaybackClock()
 clock: PlaybackClock = st.session_state.clock
 st.session_state.setdefault("review_path", str(args.review or Path(".")))
 
 
+@serialized_ui_operation
 def start() -> None:
     old = st.session_state.get("experiment")
     root = Path(st.session_state.get("runs_directory", "ejecuciones")) / uuid4().hex[:12]
@@ -55,45 +52,49 @@ def start() -> None:
 
 
 with st.sidebar:
-    st.markdown("### ◈ SECURITY INTELLIGENCE")
-    st.caption("BIG DATA · CENTRO DE CONTROL")
-    st.divider()
-    st.header("Panel de control")
-    mode = st.radio("Modo", ["Simulación", "Revisión"], index=1 if args.review else 0, key="mode")
+    st.markdown('<div class="brand"><div class="brand-mark">C</div><div><div class="brand-name">CYBER DATA</div><div class="brand-sub">Observatorio de autenticación</div></div></div>', unsafe_allow_html=True)
+    st.subheader("Fuente de datos")
+    mode = st.radio("Modo", ["Simulación", "Revisión"], index=1 if args.review else 0, key="mode", horizontal=True)
     if st.session_state.get("previous_mode", mode) != mode:
         clock.pause()
     st.session_state.previous_mode = mode
     if mode == "Simulación":
         exp = st.session_state.get("experiment")
         frozen = exp is not None and not exp.is_finished
-        with st.expander("Configuración de la próxima simulación"):
+        st.caption("Genera y procesa desde el evento 1. Cada inicio conserva las ejecuciones anteriores.")
+        st.divider()
+        st.subheader("Reproducción")
+        if exp is None:
+            st.button("Iniciar simulación", on_click=start, key="start", type="primary", width="stretch")
+        else:
+            if st.button("Pausar" if clock.playing else "Reanudar", disabled=exp.is_finished or exp.failed, key="play", type="primary", width="stretch"):
+                clock.pause() if clock.playing else clock.resume(monotonic())
+            if st.button("Siguiente lote", disabled=clock.playing or exp.is_finished or exp.failed, key="step", width="stretch"):
+                try:
+                    with UI_LOCK:
+                        exp.step()
+                except Exception as exc:
+                    st.error(f"Error al procesar: {exc}")
+        interval = st.select_slider("Segundos entre actualizaciones", options=[.1, .3, .6, 1.0, 2.0, 5.0], value=.6, key="speed")
+        if interval != clock.interval:
+            clock.set_interval(interval, monotonic())
+        st.caption("Primera proyección: 300. Después, un lote de 100 por actualización.")
+        with st.expander("Configurar la próxima simulación"):
             st.text_input("Carpeta de ejecuciones", "ejecuciones", key="runs_directory", disabled=frozen)
-            st.caption("Cada inicio crea una carpeta independiente. El experimento oficial conserva todas sus semillas y distribuciones.")
+            st.caption("Detector exploratorio: umbrales configurables antes del inicio.")
             st.number_input("Aumento mínimo (cuentas/min)", 0.1, 30.0, 3.0, .1, key="threshold", disabled=frozen)
             st.number_input("Aumento relativo mínimo (%)", 1.0, 500.0, 50.0, 5.0, key="relative_threshold", disabled=frozen)
             st.number_input("Diferencia mínima frente a Ámbar", .1, 30.0, 3.0, .1, key="control_threshold", disabled=frozen)
             st.number_input("Ventanas consecutivas", 1, 20, 3, key="persistence", disabled=frozen)
-        interval = st.select_slider("Segundos entre actualizaciones", options=[.1, .3, .6, 1.0, 2.0, 5.0], value=.6, key="speed")
-        if interval != clock.interval:
-            clock.set_interval(interval, monotonic())
-        st.caption("La velocidad cambia la espera real; conserva los lotes 300, 400, …, 6000.")
-        if exp is None:
-            st.button("Iniciar simulación", on_click=start, key="start", type="primary", width="stretch")
-        else:
-            if st.button("Pausar" if clock.playing else "Reanudar", disabled=exp.is_finished or exp.failed, key="play", width="stretch"):
-                clock.pause() if clock.playing else clock.resume(monotonic())
-            if st.button("Siguiente lote", disabled=clock.playing or exp.is_finished or exp.failed, key="step", width="stretch"):
-                try:
-                    exp.step()
-                except Exception as exc:
-                    st.error(f"Error al procesar: {exc}")
+        if exp is not None:
             with st.expander("Reiniciar simulación"):
                 st.checkbox("Confirmo reiniciar esta simulación", key="confirm_reset")
                 st.button("Reiniciar", disabled=not st.session_state.confirm_reset, key="reset", on_click=start)
-                st.caption("Conserva los archivos anteriores y comienza una ejecución nueva desde ID 1.")
+                st.caption("Comienza otra ejecución y conserva los archivos recibidos.")
             st.caption(f"Ejecución local: {exp.output_dir}")
     else:
         clock.pause()
+        st.caption("Explora una ejecución terminada con sus datos y resultados verificados.")
         st.text_input("Carpeta de la ejecución terminada", key="review_path")
         load = st.button("Cargar ejecución", key="load_review", type="primary", width="stretch")
         if load or (args.review and "reviewed" not in st.session_state and "review_error" not in st.session_state):
@@ -104,14 +105,17 @@ with st.sidebar:
             except (OSError, ValueError, KeyError, TypeError) as exc:
                 st.session_state.pop("reviewed", None)
                 st.session_state.review_error = str(exc)
-        st.caption("Revisión sin generar eventos ni entrenar modelos. Comprueba hashes, registros y estadísticas; no deserializa joblib.")
+        st.caption("La revisión no genera eventos ni vuelve a entrenar los modelos.")
     st.divider()
-    st.caption("Semillas: simulador/UMAP/K-means = 42; Morris = 420042. "
-               "Ajuste inicial: ID 1–300, con 150 resúmenes por pasarela.")
-    st.info("Datos sintéticos: un patrón de actividad no confirma un incidente real.")
+    st.subheader("Protocolo del experimento")
+    st.caption("6.000 resúmenes · 2 pasarelas\n\n300 eventos de ajuste · 5.700 de transformación\n\nMorris: 8 registros · K-means: 3 grupos")
+    with st.expander("Semillas y reproducibilidad"):
+        st.caption("Simulador, UMAP y K-means: 42. Morris: 420042, independiente del simulador. Ajuste inicial: ID 1–300, con 150 resúmenes por pasarela.")
+    st.caption("Simulación académica. Los patrones y las alertas requieren contexto adicional para investigar un incidente real.")
 
 
 @st.fragment(run_every=clock.interval if clock.playing and mode == "Simulación" else None)
+@serialized_ui_operation
 def live() -> None:
     if mode == "Revisión":
         if "review_error" in st.session_state:
@@ -126,7 +130,12 @@ def live() -> None:
             st.error(st.session_state.start_error)
         run = st.session_state.get("experiment")
         if run is None:
-            st.info("Inicia una simulación para procesar los eventos desde ID 1. Los archivos existentes se conservan.")
+            st.info("Inicia una simulación desde la barra lateral o elige Revisión para explorar la ejecución guardada en «.».")
+            st.subheader("Tres preguntas para interpretar el experimento")
+            for column, title, text in zip(st.columns(3), ("¿Cuántos fallos?", "¿Qué patrones?", "¿Qué ha cambiado?"), ("Contrasta el recuento exacto de los CSV con los ocho registros Morris.", "Explora los puntos UMAP y caracteriza los tres grupos K-means.", "Compara cuentas, fallos e IP entre periodos y pasarelas."), strict=True):
+                with column, st.container(border=True):
+                    st.markdown(f"**{title}**")
+                    st.write(text)
             return
         if run.failed:
             clock.pause()

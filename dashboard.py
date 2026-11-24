@@ -1,344 +1,313 @@
-"""Tres vistas de Streamlit; las estadísticas se comparten con la defensa."""
+"""Tres vistas de análisis. La presentación consume las mismas cifras que la defensa."""
 from __future__ import annotations
 
-import numpy as np
+from html import escape
+from typing import TYPE_CHECKING, TypeAlias
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-from typing import TYPE_CHECKING
+
+import bi_charts as charts
+from bi_metrics import DashboardData, PERIOD_NAMES, PROFILE_NAMES, build_dashboard_data, filter_points, number
+from config import GATEWAYS, PROFILES
+from report import cluster_characterization, morris_metrics
+from ui_theme import CLUSTER_COLORS, GATEWAY_COLORS, chart_style, insight, plot
 
 if TYPE_CHECKING:
     from pipeline import StreamingExperiment
     from review import ReviewedRun
 
-from config import GATEWAYS, PROFILES
-from bi_metrics import evolution_by_gateway, gateway_kpis
-from report import cluster_characterization, comparison_table, interpretation, metric_changes, morris_metrics
-
-GATEWAY_COLORS = {"Ámbar": "#D59A24", "Cobalto": "#2584D4"}
-CLUSTER_COLORS = {"0": "#D59A24", "1": "#2584D4", "2": "#9270D2"}
+Run: TypeAlias = "StreamingExperiment | ReviewedRun"
+TABS = ["Fallos y Morris", "Mapa UMAP y grupos", "Antes y después"]
 LABELS = {"pasarela": "Pasarela", "mitad": "Periodo", "minutos": "Resúmenes", "cluster": "Grupo",
-          "eventos": "Resúmenes", "accesos_medios": "Accesos correctos/min", "fallos_medios": "Fallos/min",
-          "cuentas_medias": "Cuentas/min", "ips_medias": "IP/min", "interpretacion": "Contraste observado",
-          "fallos_totales": "Fallos totales", "pct_perfil_repartido": "Perfil repartido (%)",
-          **{f"porcentaje_grupo_{i}": f"Grupo {i} (%)" for i in range(3)},
-          **{f"porcentaje_{p}": f"{p.replace('_', ' ').capitalize()} (%)" for p in PROFILES}}
+          "eventos": "Resúmenes", "accesos_medios": "Correctos/min", "fallos_medios": "Fallos/min",
+          "cuentas_medias": "Cuentas/min", "ips_medias": "IP/min", "interpretacion": "Predominio observado"}
 
 
-def _style_figure(fig: go.Figure, *, height: int = 350) -> go.Figure:
-    """Tema Plotly coherente con el lienzo BI sin alterar los datos."""
-    fig.update_layout(
-        template="plotly_white", height=height,
-        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        font={"family": "Segoe UI, Arial, sans-serif", "color": "#293f58", "size": 12},
-        hoverlabel={"bgcolor": "#183752", "font_color": "white", "font_size": 12},
-        margin={"l": 20, "r": 20, "t": 25, "b": 20},
-        legend={"orientation": "h", "y": 1.12, "x": 0, "title_text": "", "font_size": 11},
-    )
-    fig.update_xaxes(showgrid=False, zeroline=False, linecolor="#d8e2ec", tickfont_color="#718298")
-    fig.update_yaxes(gridcolor="#e9eff5", zeroline=False, tickfont_color="#718298")
-    return fig
+def _data(exp: Run) -> DashboardData:
+    # Los filtros no vuelven a leer los CSV ni a recalcular agregados completos.
+    # Un nuevo lote, una nueva simulación o una recarga de revisión invalidan la copia.
+    token = (id(exp), str(exp.output_dir), exp.event_count)
+    cached = st.session_state.get("dashboard_snapshot")
+    if cached is None or cached[0] != token:
+        cached = (token, build_dashboard_data(exp.from_csv(), exp.snapshot()))
+        st.session_state.dashboard_snapshot = cached
+    return cached[1]
 
 
-def _section(title: str, subtitle: str = "") -> None:
-    st.markdown(f'<div class="bi-section"><h2>{title}</h2><span>{subtitle}</span></div>',
-                unsafe_allow_html=True)
+def _table(frame: pd.DataFrame, *, decimals: int = 2, key: str | None = None) -> None:
+    """Formato español con valores numéricos preservados para ordenar/exportar."""
+    data = frame.rename(columns=LABELS).copy()
+    if "Periodo" in data:
+        data["Periodo"] = data.Periodo.replace(PERIOD_NAMES)
+    numeric = data.select_dtypes(include="number").columns
+    formats = {col: (lambda x, d=0 if col in ("Grupo", "Resúmenes", "Registro", "Valor c") else decimals: number(x, d)) for col in numeric}
+    st.dataframe(data.style.format(formats), hide_index=True, width="stretch", key=key)
 
 
-def filter_points(points: pd.DataFrame, gateway: str, period: str, groups: list[int]) -> pd.DataFrame:
-    selected = points[points.cluster.isin(groups)]
-    if gateway != "Ambas":
-        selected = selected[selected.pasarela == gateway]
-    if period != "Completo":
-        selected = selected[selected.id.le(3000) if period == "Primera mitad" else selected.id.gt(3000)]
-    return selected.copy()
+def render_overview(data: DashboardData) -> None:
+    if data.comparison_ready:
+        accounts = data.change("Cobalto", "cuentas_medias")
+        failures = data.change("Cobalto", "fallos_medios")
+        metrics = [
+            ("summary_cobalto", "Cuentas en Cobalto", number(accounts.after, 2), f"{number(accounts.percentage, 1, signed=True)} %",
+             f"Antes: {number(accounts.before, 2)} · cuentas/min", "Media de cuentas distintas afectadas por minuto en la segunda mitad; variación frente a la primera."),
+            ("summary_fallos", "Fallos en Cobalto", number(failures.after, 2), f"{number(failures.percentage, 2, signed=True)} %",
+             f"Antes: {number(failures.before, 2)} · fallos/min", "Media de fallos por minuto. Cada periodo contiene 1.500 resúmenes de Cobalto."),
+            ("summary_control", "Cambio frente a Ámbar", number(data.accounts_did, 3, signed=True), None,
+             "Cuentas/min · diferencia en diferencias", "Cambio de cuentas en Cobalto menos el cambio de cuentas en Ámbar, que conserva su distribución."),
+            ("summary_events", "Eventos analizados", number(len(data.points)), None,
+             "3.000 por pasarela · 3 grupos", "Cada evento es un resumen por minuto y pasarela; hay dos resúmenes por minuto simulado."),
+        ]
+        title = "El cambio se hace visible al observar las cuentas"
+        insight(title, f"Cobalto cambia {number(accounts.difference, 3, signed=True)} cuentas/min "
+                f"({number(accounts.percentage, 2, signed=True)} %), frente a {number(failures.difference, 3, signed=True)} fallos/min. "
+                "Comparar volumen y alcance permite interpretar el comportamiento.")
+    else:
+        metrics = [
+            ("summary_ambar", "Resúmenes de Ámbar", number(data.raw.pasarela.eq("Ámbar").sum()), None, "Pasarela de referencia", "Una fila por minuto; ID impares."),
+            ("summary_cobalto", "Resúmenes de Cobalto", number(data.raw.pasarela.eq("Cobalto").sum()), None, "Pasarela bajo observación", "Una fila por minuto; ID pares."),
+            ("summary_fallos", "Fallos exactos totales", number(data.raw.fallos.sum()), None, "Intentos · suma de ambos CSV", "Total de intentos fallidos, no número de resúmenes."),
+            ("summary_events", "Puntos proyectados", number(data.points.cluster.notna().sum()), None, "UMAP 2D · ajuste inicial conservado", "300 eventos iniciales y transformación posterior sin reentrenar."),
+        ]
+    for column, (key, label, value, delta, caption, help_text) in zip(st.columns(4), metrics, strict=True):
+        with column, st.container(border=True, key=key):
+            st.metric(label, value, delta=delta, delta_color="off", help=help_text)
+            st.caption(caption)
 
 
-def group_distribution(stats: pd.DataFrame, key: str) -> None:
-    table = stats.copy()
-    table["Periodo / pasarela"] = table.pasarela + " · " + table.mitad
-    long = table.melt(id_vars="Periodo / pasarela", value_vars=[f"porcentaje_grupo_{i}" for i in range(3)],
-                      var_name="Grupo", value_name="Frecuencia (%)")
-    long["Grupo"] = long.Grupo.str.removeprefix("porcentaje_grupo_")
-    fig = px.bar(long, x="Periodo / pasarela", y="Frecuencia (%)", color="Grupo",
-                 color_discrete_map=CLUSTER_COLORS, category_orders={"Grupo": ["0", "1", "2"]},
-                 barmode="stack", range_y=[0, 100])
-    st.plotly_chart(_style_figure(fig, height=330), width="stretch", key=key)
+def render_morris(exp: Run, data: DashboardData) -> None:
+    st.subheader("¿Cuántos intentos fallidos se han recibido?")
+    st.caption("El CSV da el total exacto. Morris lo aproxima con ocho registros por pasarela; cada resumen puede contener muchos fallos.")
+    for gateway, column in zip(GATEWAYS, st.columns(2), strict=True):
+        with column, st.container(border=True, key=f"panel_morris_{gateway}"):
+            st.markdown(f'<span class="legend-pill" style="color:{GATEWAY_COLORS[gateway]};background:{GATEWAY_COLORS[gateway]}12">{gateway}</span>', unsafe_allow_html=True)
+            exact = int(data.raw.loc[data.raw.pasarela == gateway, "fallos"].sum())
+            m = morris_metrics(exact, exp.morris.estimate(gateway))
+            left, right = st.columns(2)
+            left.metric("Fallos exactos", number(exact), help="Suma de fallos del CSV de esta pasarela, en intentos.")
+            right.metric("Estimación Morris", number(m["estimacion_morris"]),
+                         delta=f"{number(m['diferencia_con_signo'], signed=True)} vs. CSV", delta_color="off",
+                         help="Media de ocho estimaciones 2^c−1; diferencia con signo = estimación menos exacto.")
+            st.caption(f"Error absoluto: {number(m['error_absoluto'])} intentos · Error relativo: {number(m['error_relativo_porcentaje'], 2)} %")
+    left, right = st.columns([1.55, 1])
+    history = pd.DataFrame(exp.history)
+    with left, st.container(border=True, key="panel_volume"):
+        st.subheader("Volumen acumulado")
+        st.caption("Línea continua: CSV exacto · punteada: estimación Morris")
+        plot(charts.morris_evolution(history), "morris_chart")
+    with right, st.container(border=True, key="panel_precision"):
+        st.subheader("Precisión de la estimación")
+        st.caption("Menor porcentaje significa menor error respecto al CSV.")
+        plot(charts.morris_error(history), "morris_error_chart")
+    with st.expander("Cómo funciona Morris · inspeccionar los ocho registros"):
+        st.write("Cada intento fallido produce un sorteo independiente por registro. Si **u < 2⁻ᶜ**, "
+                 "el registro aumenta. La media de **ocho estimaciones 2ᶜ − 1** reduce la varianza, pero no elimina el error aleatorio.")
+        rows = [{"Pasarela": g, "Registro": i+1, "Valor c": c, "Estimación individual": 2**c-1}
+                for g in GATEWAYS for i, c in enumerate(exp.morris.counters[g].registers)]
+        registers = pd.DataFrame(rows)
+        a, b = st.columns([1, 1.3])
+        with a:
+            _table(registers, decimals=0)
+        with b:
+            fig = px.bar(registers, x="Registro", y="Estimación individual", color="Pasarela", barmode="group", color_discrete_map=GATEWAY_COLORS)
+            plot(chart_style(fig, height=360), "registers_chart")
 
 
-def render_detection(exp: StreamingExperiment | ReviewedRun) -> None:
-    with st.expander("Detección de cambios de comportamiento", expanded=False):
-        detector = exp.detector
-        cfg = detector.config
-        st.caption(f"Media móvil: {cfg.window} resúmenes/pasarela. Referencia: primeros {cfg.baseline_events}. "
-                   f"Evaluación cada {cfg.stride} minutos; persistencia: {cfg.persistence} ventanas. "
-                   "Sin datos futuros ni conocimiento del instante del cambio.")
+def _reset_filters() -> None:
+    st.session_state.gateway_filter = "Ambas"
+    st.session_state.period_filter = "Completo"
+    st.session_state.group_filter = [0, 1, 2]
+    st.session_state.resetting_map_filters = True
+
+
+def render_map(exp: Run, data: DashboardData) -> None:
+    st.subheader("¿Qué patrones de actividad aparecen?")
+    st.caption("Cada punto es un resumen. El color identifica su grupo K-means; las cruces C0, C1 y C2 son los centroides fijos.")
+    with st.container(border=True):
+        a, b, c, d = st.columns([1, 1, 1.3, .7], vertical_alignment="bottom")
+        gateway = a.selectbox("Pasarela", ["Ambas", *GATEWAYS], key="gateway_filter")
+        period = b.selectbox("Periodo", ["Completo", "Primera mitad", "Segunda mitad"], key="period_filter")
+        # El valor inicial explícito también se conserva al remontar el widget
+        # tras cambiar de modo. En el callback la selección ya viene del estado.
+        resetting = st.session_state.pop("resetting_map_filters", False)
+        groups = c.multiselect("Grupos K-means", [0, 1, 2], default=None if resetting else [0, 1, 2], key="group_filter")
+        d.button("Restablecer", key="reset_filters", on_click=_reset_filters, width="stretch", help="Mostrar ambas pasarelas, todo el periodo y los tres grupos.")
+        selected = filter_points(data.points, gateway, period, groups)
+        trained = int(selected.id.le(300).sum())
+        st.caption(f"{number(len(selected))} puntos seleccionados de {number(len(data.points))} · "
+                   f"{number(trained)} de ajuste inicial · {number(len(selected)-trained)} transformados después")
+    main, aside = st.columns([2.1, 1])
+    with main, st.container(border=True, key="panel_map"):
+        plot(charts.umap_map(selected, data.points, exp.centroids, groups), "umap_chart")
+        st.caption("UMAP 1 y 2 no tienen unidades físicas. Los límites del plano se conservan al filtrar; los modelos no se vuelven a entrenar.")
+    with aside:
+        st.subheader("Lectura de la selección")
+        if selected.empty:
+            st.info("No hay eventos en la selección actual. Amplía los filtros o pulsa Restablecer.")
+            chars, cross = pd.DataFrame(), pd.DataFrame()
+        else:
+            chars, cross = cluster_characterization(selected)
+            for row in chars.itertuples():
+                majority = cross.loc[row.cluster].idxmax()
+                st.markdown(f'<div class="group-card" style="--group:{CLUSTER_COLORS[str(row.cluster)]}">'
+                            f'<div class="group-name">Grupo {row.cluster} · {number(row.eventos)} resúmenes</div>'
+                            f'<div class="group-value">{number(row.cuentas_medias, 2)} <span style="font-size:.85rem;font-weight:400">cuentas/min</span></div>'
+                            f'<div class="group-body">{number(row.fallos_medios, 2)} fallos/min · {number(row.ips_medias, 2)} IP/min<br>'
+                            f'{escape(PROFILE_NAMES[majority])}: {number(float(cross.loc[row.cluster].max()), 1)} % del grupo</div></div>', unsafe_allow_html=True)
+            st.caption("Descripción calculada después de agrupar. Los ID de grupo no tienen un significado prefijado.")
+    a, b = st.columns(2)
+    with a, st.container(border=True, key="panel_profiles"):
+        st.subheader("¿Coinciden grupos y perfiles?")
+        st.caption("Selección actual · porcentaje de cada perfil dentro de su grupo")
+        if not cross.empty:
+            plot(charts.profile_heatmap(cross), "profile_heatmap")
+        else:
+            st.info("Selecciona puntos para contrastar los perfiles.")
+    with b, st.container(border=True, key="panel_distribution"):
+        st.subheader("Distribución de los grupos")
+        st.caption("Todos los eventos recibidos · 1.ª y 2.ª mitad por pasarela")
+        plot(charts.group_distribution(data.periods), "map_group_distribution")
+        if not data.comparison_ready:
+            st.caption("Frecuencias provisionales: los periodos todavía no están completos.")
+    with st.expander("Medias por grupo y protocolo de entrenamiento"):
+        if not chars.empty:
+            _table(chars.drop(columns="interpretacion"), decimals=3)
+        st.write("**4 medidas → StandardScaler → UMAP 2D → K-means (k=3).** Los ID 1–300 "
+                 "(150 por pasarela) ajustan los tres modelos una sola vez. Los siguientes usan transform y predict. "
+                 "ID, instante, pasarela y perfil quedan fuera del vector de aprendizaje.")
+    st.caption("El perfil simulado sirve solo para auditoría posterior. Un grupo describe patrones de acceso; por sí solo no demuestra un ataque real.")
+
+
+def render_detection(exp: Run) -> None:
+    with st.expander("Detección de cambios de comportamiento · análisis exploratorio"):
+        detector, cfg = exp.detector, exp.detector.config
         found = detector.first_detection
+        st.caption(f"Media móvil de {cfg.window} resúmenes por pasarela · referencia: primeros {cfg.baseline_events} observados · evaluación cada {cfg.stride} minutos")
         if found:
             st.warning(f"Cambio observado · Primera detección en ID {found['id']} · {found['instante']}")
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Cobalto en la detección", f"{found['cuentas_Cobalto']:.2f} cuentas/min")
-            c2.metric("Aumento sobre referencia", f"{found['aumento_cobalto']:+.2f} cuentas/min")
-            c3.metric("Aumento frente a Ámbar", f"{found['diferencia_control']:+.2f} cuentas/min")
+            a, b, c = st.columns(3)
+            a.metric("Cobalto en la detección", number(found["cuentas_Cobalto"], 2), help="Cuentas distintas/min en la ventana de detección.")
+            b.metric("Aumento sobre referencia", number(found["aumento_cobalto"], 2, signed=True))
+            c.metric("Aumento frente a Ámbar", number(found["diferencia_control"], 2, signed=True))
         elif len(detector.baseline) < 2:
-            st.info("Construyendo la referencia inicial con los datos recibidos.")
+            st.info("Construyendo la referencia con datos ya observados.")
         else:
-            st.success("Estado normal: no se ha observado un cambio persistente según el criterio configurado.")
+            st.info("Estado normal según el criterio configurado: no se ha observado un cambio persistente.")
         history = pd.DataFrame(detector.history)
         if not history.empty:
-            for metric, title in (("cuentas", "Cuentas distintas/min · media móvil"), ("fallos", "Fallos/min · media móvil")):
-                fig = go.Figure()
-                for gateway in GATEWAYS:
-                    fig.add_trace(go.Scatter(x=history.instante, y=history[f"{metric}_{gateway}"],
-                                             name=gateway, line={"color": GATEWAY_COLORS[gateway]}))
-                if metric == "cuentas" and len(detector.baseline) == 2:
+            for column, metric, unit in zip(st.columns(2), ("cuentas", "fallos"), ("Cuentas distintas/min", "Fallos/min"), strict=True):
+                with column:
+                    fig = go.Figure()
                     for gateway in GATEWAYS:
-                        # La referencia solo se muestra a partir de su observación completa.
-                        part = history[history.minuto >= cfg.baseline_events]
-                        fig.add_trace(go.Scatter(x=part.instante, y=[detector.baseline[gateway]]*len(part),
-                                                 name=f"Referencia {gateway}", line={"color": GATEWAY_COLORS[gateway], "dash": "dot"}))
-                if found:
-                    fig.add_shape(type="line", x0=found["instante"], x1=found["instante"], y0=0, y1=1,
-                                  yref="paper", line={"color": "#b05e62", "dash": "dash"})
-                fig.update_layout(yaxis_title=title, xaxis_title="Instante simulado")
-                st.plotly_chart(_style_figure(fig, height=290), width="stretch", key=f"change_{metric}")
-        st.caption(f"Criterio: aumento Cobalto ≥ max({cfg.min_increase:g} cuentas/min, "
-                   f"{100*cfg.relative_increase:g} % de su referencia) y aumento diferencial frente a Ámbar "
-                   f"≥ {cfg.min_control_gap:g} cuentas/min. Las ventanas se solapan; esta heurística exploratoria "
-                   "no garantiza detección perfecta ni acredita un incidente.")
+                        fig.add_trace(go.Scatter(x=history.instante, y=history[f"{metric}_{gateway}"], name=gateway,
+                                                 line={"color": GATEWAY_COLORS[gateway], "width": 2}))
+                        if metric == "cuentas" and gateway in detector.baseline:
+                            part = history[history.minuto >= cfg.baseline_events]
+                            fig.add_trace(go.Scatter(x=part.instante, y=[detector.baseline[gateway]]*len(part),
+                                                     name=f"Referencia {gateway}", line={"color": GATEWAY_COLORS[gateway], "dash": "dot"}))
+                    if found:
+                        fig.add_shape(type="line", x0=found["instante"], x1=found["instante"], y0=0, y1=1, yref="paper", line={"color": "#C45074", "dash": "dash"})
+                    chart_style(fig, height=320)
+                    fig.update_layout(yaxis_title=unit, hovermode="x unified")
+                    fig.update_xaxes(type="date", tickformat="%d/%m\n%H:%M", nticks=4)
+                    plot(fig, f"change_{metric}")
+        st.caption(f"Criterio: aumento Cobalto ≥ max({number(cfg.min_increase, 1)} cuentas/min, "
+                   f"{number(100*cfg.relative_increase)} % de su referencia), y aumento diferencial frente a Ámbar "
+                   f"≥ {number(cfg.min_control_gap, 1)} cuentas/min durante {cfg.persistence} ventanas consecutivas. "
+                   "No utiliza datos futuros ni conoce el evento del cambio. Las ventanas se solapan; esta heurística no prueba un incidente.")
 
 
-def render_dashboard(exp: StreamingExperiment | ReviewedRun) -> None:
-    """Panel estilo Power BI: las tres vistas oficiales comparten datos y modelos."""
-    n = exp.event_count
-    status = "EJECUCIÓN COMPLETA" if exp.is_finished else "SIMULACIÓN EN CURSO"
-    st.markdown(
-        f'<div class="bi-hero"><div><div class="bi-eyebrow">BIG DATA / SECURITY ANALYTICS / INFORME EN DIRECTO</div>'
-        f'<h1>Observatorio de autenticación</h1>'
-        f'<p>Dos pasarelas · 3 patrones · Morris × 8 · UMAP 2D · K-means k=3</p></div>'
-        f'<div class="bi-pill">● {status}</div></div>',
-        unsafe_allow_html=True,
-    )
-    st.progress(n / 6000, text=f"{n:,} / 6.000 eventos procesados · {n//2:,} minutos simulados")
-    if n < 300:
-        st.info("El mapa y las tres vistas se activarán en el evento 300. Después se actualizarán en 400, 500, …, 6000.")
-        return
-
-    raw, points = exp.from_csv(), exp.snapshot()
-    counts = gateway_kpis(raw)
-    last_time = str(points.iloc[-1].instante).replace("T", " · ")
-    st.caption(f"Último ID: {n} · Instante simulado: {points.iloc[-1].instante}")
-
-    # KPI superiores: información recibida hasta este instante, no valores futuros.
-    kpi = st.columns(4)
-    kpi[0].metric("Eventos procesados", f"{n:,}", help="Resúmenes recibidos de ambas pasarelas.")
-    kpi[1].metric("Fallos totales · exactos", f"{sum(int(v['fallos']) for v in counts.values()):,}",
-                  help="Suma real de los fallos recibidos en ambos CSV.")
-    kpi[2].metric("Cuentas/min · Cobalto", f"{counts['Cobalto']['cuentas_medias']:.2f}",
-                  help="Media por minuto de las cuentas distintas implicadas en los fallos.")
-    kpi[3].metric("Cobertura ML", f"{len(points):,} puntos", help="Eventos proyectados y asignados a K-means.")
-
-    if exp.is_finished:
-        stats = comparison_table(points)
-        before = stats[(stats.pasarela == "Cobalto") & (stats.mitad.str.startswith("Antes"))].iloc[0]
-        after = stats[(stats.pasarela == "Cobalto") & (stats.mitad.str.startswith("Después"))].iloc[0]
-        change = float(after.cuentas_medias - before.cuentas_medias)
-        diff_failures = float(after.fallos_medios - before.fallos_medios)
-        st.markdown(
-            '<div class="bi-callout">'
-            f'<strong>HALLAZGO PRINCIPAL · Cobalto: {before.cuentas_medias:.3f} → '
-            f'{after.cuentas_medias:.3f} cuentas/min ({change:+.3f})</strong>'
-            f'<span class="bi-desc">Los fallos apenas varían ({diff_failures:+.3f} fallos/min). '
-            'Ámbar actúa como control: el cambio importante está en la distribución de los fallos, '
-            'no en su volumen. Cifras observadas sobre 1.500 minutos por mitad.</span></div>',
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            '<div class="bi-callout"><strong>MONITORIZACIÓN INCREMENTAL</strong>'
-            '<span class="bi-desc">Los indicadores utilizan exclusivamente los eventos recibidos. '
-            'La comparación definitiva entre mitades estará disponible al completar 6.000 eventos.</span></div>',
-            unsafe_allow_html=True,
-        )
-
-    tab1, tab2, tab3 = st.tabs([
-        "01 · Fallos por pasarela", "02 · Mapa UMAP y grupos", "03 · Antes y después",
-    ])
-
-    with tab1:
-        _section("Precisión de Morris", "Valor estimado vs. recuento exacto de los CSV")
-        st.caption("Un resumen puede representar decenas de intentos fallidos. Morris cuenta intentos, no filas.")
-        for gateway, column in zip(GATEWAYS, st.columns(2), strict=True):
-            with column, st.container(border=True):
-                st.markdown(f"**{'🟡' if gateway == 'Ámbar' else '🔵'} Pasarela {gateway}**")
-                exact = int(counts[gateway]["fallos"])
-                metrics = morris_metrics(exact, exp.morris.estimate(gateway))
-                left, right = st.columns(2)
-                left.metric("Fallos exactos", f"{exact:,}",
-                            help="Suma de la columna fallos del CSV de esta pasarela.")
-                right.metric("Estimación Morris", f"{metrics['estimacion_morris']:,.1f}",
-                             delta=f"{metrics['diferencia_con_signo']:+,.1f}", delta_color="off",
-                             help="Media de ocho estimaciones 2^c−1; delta = estimado − exacto.")
-                st.caption(f"Error absoluto: **{metrics['error_absoluto']:,.1f} intentos** · "
-                           f"Error relativo: **{metrics['error_relativo_porcentaje']:.2f} %**")
-                st.caption(f"Registros c₁…c₈: {exp.morris.counters[gateway].registers}")
-
-        _section("Evolución de fallos acumulados", "Morris frente al total exacto")
-        history = pd.DataFrame(exp.history)
-        with st.container(border=True):
-            trend = go.Figure()
-            for gateway in GATEWAYS:
-                for prefix, label, dash in (("real", "Exacto", "solid"), ("morris", "Morris", "dot")):
-                    trend.add_trace(go.Scatter(
-                        x=history.instante, y=history[f"{prefix}_{gateway}"],
-                        name=f"{gateway} · {label}", mode="lines",
-                        line={"color": GATEWAY_COLORS[gateway], "dash": dash, "width": 2.6},
-                        hovertemplate="%{x}<br>%{y:,.0f} intentos<extra>%{fullData.name}</extra>",
-                    ))
-            trend.update_layout(yaxis_title="Intentos fallidos acumulados", xaxis_title="Instante simulado")
-            st.plotly_chart(_style_figure(trend, height=365), width="stretch", key="morris_chart")
-
-        _section("Calidad de estimación", "Evolución del error relativo absoluto")
-        with st.container(border=True):
-            errors = go.Figure()
-            for gateway in GATEWAYS:
-                exact = history[f"real_{gateway}"]
-                relative = 100 * (history[f"morris_{gateway}"] - exact).abs().div(exact.where(exact.ne(0))).fillna(0)
-                errors.add_trace(go.Scatter(x=history.instante, y=relative, name=gateway, mode="lines",
-                                            line={"color": GATEWAY_COLORS[gateway], "width": 2.7},
-                                            hovertemplate="%{x}<br>%{y:.2f} %<extra>%{fullData.name}</extra>"))
-            errors.update_layout(yaxis_title="Error relativo absoluto (%)", xaxis_title="Instante simulado")
-            st.plotly_chart(_style_figure(errors, height=275), width="stretch", key="morris_error_chart")
-        with st.expander("Auditoría de los 8 registros por pasarela"):
-            registers = pd.DataFrame([
-                {"Pasarela": g, "Registro": i + 1, "Valor c": c, "Estimación 2^c−1": 2 ** c - 1}
-                for g in GATEWAYS for i, c in enumerate(exp.morris.counters[g].registers)
-            ])
-            st.dataframe(registers, hide_index=True, width="stretch")
-            fig = px.bar(registers, x="Registro", y="Estimación 2^c−1", color="Pasarela",
-                         barmode="group", color_discrete_map=GATEWAY_COLORS)
-            st.plotly_chart(_style_figure(fig, height=290), width="stretch", key="registers_chart")
-        st.caption("Morris incrementa con probabilidad 2⁻ᶜ. Las ocho réplicas reducen la variabilidad, "
-                   "pero no garantizan exactitud en una realización concreta.")
-
-    with tab2:
-        _section("Mapa de actividad", "Embeddings UMAP 2D · 3 centroides entrenados en los primeros 300 eventos")
-        f1, f2, f3 = st.columns([1.1, 1.2, 1.4])
-        gateway = f1.selectbox("Pasarela", ["Ambas", *GATEWAYS], key="gateway_filter")
-        period = f2.selectbox("Periodo", ["Completo", "Primera mitad", "Segunda mitad"], key="period_filter")
-        groups = f3.multiselect("Grupos K-means", [0, 1, 2], default=[0, 1, 2], key="group_filter")
-        dataset = filter_points(points, gateway, period, groups)
-        st.caption(f"{len(dataset):,} puntos seleccionados de {len(points):,}. Los centroides permanecen fijos desde el evento 300.")
-        with st.container(border=True):
-            dataset["grupo"] = dataset.cluster.astype(str)
-            fig = px.scatter(dataset, x="umap_x", y="umap_y", color="grupo", color_discrete_map=CLUSTER_COLORS,
-                             category_orders={"grupo": ["0", "1", "2"]},
-                             hover_data=["id", "instante", "pasarela", "fallos", "cuentas", "ips_origen", "perfil"],
-                             labels={"grupo": "Grupo", "umap_x": "UMAP 1", "umap_y": "UMAP 2", "id": "ID",
-                                     "instante": "Minuto", "pasarela": "Pasarela", "fallos": "Fallos/min",
-                                     "cuentas": "Cuentas/min", "ips_origen": "IP/min", "perfil": "Perfil generado"},
-                             opacity=.7, render_mode="webgl")
-            fig.update_traces(marker={"size": 7})
-            if exp.centroids is not None:
-                for group in groups:
-                    center = exp.centroids[group]
-                    fig.add_trace(go.Scattergl(
-                        x=[center[0]], y=[center[1]], mode="markers+text", name=f"Centroide {group}",
-                        text=[f"C{group}"], textposition="top right", textfont={"size": 12, "color": "#17304a"},
-                        marker={"symbol": "x", "size": 17, "color": "#142c45", "line": {"width": 2, "color": "white"}},
-                        hovertemplate=f"Centroide fijo del grupo {group}<br>UMAP 1: %{{x:.3f}}<br>UMAP 2: %{{y:.3f}}<extra></extra>",
-                    ))
-            st.plotly_chart(_style_figure(fig, height=485), width="stretch", key="umap_chart")
-        if dataset.empty:
-            st.info("No hay eventos en la selección actual.")
-        else:
-            chars, cross = cluster_characterization(dataset)
-            _section("Calidad de los grupos", "Perfil simulado usado solo para auditoría posterior")
-            left, right = st.columns([1, 1.15])
-            with left, st.container(border=True):
-                st.markdown("**Caracterización de clústeres**")
-                st.dataframe(chars.rename(columns=LABELS).round(3), hide_index=True, width="stretch")
-            with right, st.container(border=True):
-                st.markdown("**Correspondencia grupo ↔ perfil (%)**")
-                heat = px.imshow(cross.rename(columns={p: p.replace("_", " ") for p in PROFILES}),
-                                 text_auto=".1f", zmin=0, zmax=100,
-                                 color_continuous_scale=[[0, "#edf5fd"], [.5, "#6ba7d8"], [1, "#17508f"]],
-                                 labels={"x": "Perfil simulado", "y": "Grupo", "color": "% del grupo"}, aspect="auto")
-                heat.update_yaxes(tickmode="array", tickvals=list(cross.index))
-                st.plotly_chart(_style_figure(heat, height=315), width="stretch", key="profile_heatmap")
-        _section("Frecuencia de grupos", "Comparación acumulada por pasarela y periodo")
-        with st.container(border=True):
-            group_distribution(comparison_table(points), "map_group_distribution")
-        st.caption("Las frecuencias anteriores se calculan sobre todos los eventos observados, sin aplicar los "
-                   "filtros del mapa. El perfil generado no interviene en el aprendizaje de UMAP/K-means. "
-                   "Las agrupaciones describen patrones, no prueban un ataque real.")
-
-    with tab3:
-        _section("Antes y después", "La mitad de cada pasarela corresponde a 1.500 resúmenes")
-        # Esta evolución se calcula solo a partir de datos ya emitidos, por bloques de 100 minutos.
-        evolution = evolution_by_gateway(raw, minutes_per_bin=100)
-        with st.container(border=True):
-            st.markdown("**Evolución de cuentas afectadas por minuto**")
-            st.markdown('<p class="bi-chart-note">Promedios por bloques de 100 minutos por pasarela. '
-                        'La línea discontinua marca el cambio de distribución programado (minuto 1.500).</p>',
-                        unsafe_allow_html=True)
-            chart = go.Figure()
-            for gateway in GATEWAYS:
-                sub = evolution.loc[evolution.pasarela == gateway]
-                chart.add_trace(go.Scatter(x=sub.minuto_fin, y=sub.cuentas_medias, mode="lines+markers",
-                                           name=gateway, line={"color": GATEWAY_COLORS[gateway], "width": 3},
-                                           marker={"size": 6},
-                                           hovertemplate="Minuto %{x}<br>%{y:.2f} cuentas/min<extra>%{fullData.name}</extra>"))
-            if n > 3000:
-                chart.add_vline(x=1500, line_width=1.5, line_dash="dash", line_color="#8d9db0",
-                                annotation_text="Cambio simulado", annotation_font_color="#586d85")
-            chart.update_layout(xaxis_title="Minuto simulado", yaxis_title="Cuentas distintas/min")
-            st.plotly_chart(_style_figure(chart, height=345), width="stretch", key="accounts_trend")
-        if not exp.is_finished:
-            st.info("El análisis final de mitades se muestra tras el evento 6000: cada periodo necesita exactamente "
-                    "1.500 resúmenes por pasarela.")
-        else:
-            stats = comparison_table(points)
-            variations = metric_changes(stats)
-            accounts = variations[variations.metrica == "cuentas_medias"].set_index("pasarela")
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Cambio Cobalto · cuentas/min", f"{accounts.loc['Cobalto', 'diferencia']:+.3f}",
-                      help="Media de la segunda mitad menos la primera; cuentas distintas por minuto.")
-            c2.metric("Cambio Ámbar · cuentas/min", f"{accounts.loc['Ámbar', 'diferencia']:+.3f}")
-            c3.metric("Diferencia en diferencias", f"{accounts.loc['Cobalto', 'diferencia'] - accounts.loc['Ámbar', 'diferencia']:+.3f}",
-                      help="Cambio en Cobalto menos cambio en Ámbar, medido en cuentas/min.")
-            _section("Indicadores por periodo", "Cuentas, fallos e IP medias por minuto")
-            for metric, column in zip(("cuentas_medias", "fallos_medios", "ips_medias"), st.columns(3), strict=True):
-                with column, st.container(border=True):
-                    fig = px.bar(stats, x="pasarela", y=metric, color="mitad", barmode="group",
-                                 color_discrete_sequence=["#a9bfd3", "#276c9c"], labels=LABELS)
-                    fig.update_layout(title={"text": LABELS[metric], "font_size": 14})
-                    st.plotly_chart(_style_figure(fig, height=315), width="stretch", key=f"before_after_{metric}")
-            _section("Frecuencia de K-means", "Porcentaje de cada grupo por mitad y pasarela")
-            with st.container(border=True):
-                group_distribution(stats, "before_after_distribution")
-            _section("Detalle auditable", "Medias calculadas sobre los CSV y las 6.000 proyecciones")
-            st.dataframe(stats[["pasarela", "mitad", "minutos", "fallos_medios", "cuentas_medias", "ips_medias"]]
-                         .rename(columns=LABELS).round(3), hide_index=True, width="stretch")
-            variations["metrica"] = variations.metrica.map(LABELS)
-            with st.expander("Variaciones y porcentajes de perfiles/grupos", expanded=False):
-                st.dataframe(variations.rename(columns={"pasarela": "Pasarela", "metrica": "Medida por minuto",
-                                                          "antes": "Antes", "despues": "Después", "diferencia": "Cambio absoluto",
-                                                          "variacion_porcentaje": "Variación (%)"}).round(3),
-                             hide_index=True, width="stretch")
-                st.dataframe(stats[["pasarela", "mitad", *[f"porcentaje_grupo_{i}" for i in range(3)],
-                                    *[f"porcentaje_{p}" for p in PROFILES]]].rename(columns=LABELS).round(2),
-                             hide_index=True, width="stretch")
-            st.markdown(f'<div class="bi-callout"><strong>INTERPRETACIÓN DEL EXPERIMENTO</strong>'
-                        f'<span class="bi-desc">{interpretation(stats)}</span></div>', unsafe_allow_html=True)
+def render_comparison(exp: Run, data: DashboardData) -> None:
+    st.subheader("¿Cambió el volumen o cambió el alcance?")
+    if not data.comparison_ready:
+        st.info("La comparación final estará disponible al completar 6.000 eventos: requiere exactamente 1.500 resúmenes por pasarela y mitad.")
         render_detection(exp)
+        return
+    st.caption("Primera mitad: ID 1–3.000 · segunda mitad: ID 3.001–6.000 · 1.500 resúmenes en cada barra")
+    for column, metric, title, caption, unit in zip(st.columns(2), ("cuentas_medias", "fallos_medios"),
+            ("El alcance sobre las cuentas", "El volumen de intentos fallidos"),
+            ("Cuentas distintas afectadas por minuto", "Mismo rango de fallos en los dos perfiles de muchos fallos"),
+            ("Cuentas/min", "Fallos/min"), strict=True):
+        with column, st.container(border=True, key=f"panel_comparison_{metric}"):
+            st.subheader(title)
+            st.caption(caption)
+            plot(charts.before_after(data.periods, metric, unit), f"before_after_{metric}")
+    c, a = data.change("Cobalto", "cuentas_medias"), data.change("Ámbar", "cuentas_medias")
+    f, af = data.change("Cobalto", "fallos_medios"), data.change("Ámbar", "fallos_medios")
+    left, right = st.columns([1, 1.7])
+    with left, st.container(border=True, key="panel_did"):
+        st.metric("Diferencia en diferencias · cuentas/min", number(data.accounts_did, 3, signed=True),
+                  help="(Cobalto después − antes) − (Ámbar después − antes). Comparación descriptiva del experimento.")
+        st.caption(f"Cambio Cobalto: {number(c.difference, 3, signed=True)}\n\nCambio Ámbar: {number(a.difference, 3, signed=True)}")
+    with right, st.container(border=True, key="panel_conclusion"):
+        st.subheader("Conclusión para la defensa")
+        st.write(f"**Cobalto pasa de {number(c.before, 3)} a {number(c.after, 3)} cuentas/min** "
+                 f"({number(c.percentage, 2, signed=True)} %). Ámbar pasa de {number(a.before, 3)} a {number(a.after, 3)}.")
+        st.write(f"Los fallos cambian {number(f.difference, 3, signed=True)}/min en Cobalto y "
+                 f"{number(af.difference, 3, signed=True)}/min en Ámbar. El diseño mantiene la esperanza de fallos "
+                 "en 32,8/min; observar solo ese volumen no identifica el cambio de alcance.")
+        st.caption("Cuentas distintas por minuto ≠ cuentas únicas de toda la simulación. Los resultados describen datos sintéticos.")
+    with st.container(border=True, key="panel_evidence"):
+        st.subheader("De los patrones a la evidencia")
+        st.caption("Frecuencia de cada grupo · porcentajes calculados sobre 1.500 resúmenes")
+        plot(charts.group_distribution(data.periods), "before_after_distribution")
+        x, y = st.columns(2)
+        for column, columns, title in ((x, [f"porcentaje_grupo_{i}" for i in range(3)], "Grupos detectados (%)"),
+                                      (y, [f"porcentaje_{p}" for p in PROFILES], "Perfiles simulados (%)")):
+            with column:
+                st.markdown(f"**{title}**")
+                names = {f"porcentaje_grupo_{i}": f"Grupo {i}" for i in range(3)} | {f"porcentaje_{p}": PROFILE_NAMES[p] for p in PROFILES}
+                _table(data.periods[["pasarela", "mitad", *columns]].rename(columns=names))
+    with st.expander("Detalle numérico · medias, variaciones e IP de origen"):
+        _table(data.periods[["pasarela", "mitad", "minutos", "fallos_medios", "cuentas_medias", "ips_medias"]], decimals=3)
+        changes = data.changes.copy()
+        changes["metrica"] = changes.metrica.map(LABELS)
+        _table(changes.rename(columns={"metrica": "Medida por minuto", "antes": "Antes", "despues": "Después", "diferencia": "Cambio absoluto", "variacion_porcentaje": "Variación (%)"}), decimals=3)
+        plot(charts.before_after(data.periods, "ips_medias", "IP distintas/min"), "before_after_ips_medias")
+    render_detection(exp)
 
+
+def render_evidence(exp: Run, data: DashboardData) -> None:
+    with st.expander("Guía de defensa · los cinco criterios del enunciado"):
+        st.caption("Evidencias de esta ejecución; cada criterio tiene una puntuación máxima de 2 puntos. Esta guía no asigna una calificación.")
+        ml_ready = exp.ml_real and len(data.points) >= 300
+        rows = [
+            {"Criterio (máx. 2 puntos)": "Generación y almacenamiento", "Evidencia disponible": f"{number(len(data.raw))} filas; Ámbar {number(data.raw.pasarela.eq('Ámbar').sum())}, Cobalto {number(data.raw.pasarela.eq('Cobalto').sum())}", "Dónde mostrarlo": "CSV descargables y progreso"},
+            {"Criterio (máx. 2 puntos)": "Morris y contraste exacto", "Evidencia disponible": "8 registros por pasarela; errores frente a la suma CSV", "Dónde mostrarlo": "Fallos y Morris"},
+            {"Criterio (máx. 2 puntos)": "UMAP: proyección de nuevos eventos", "Evidencia disponible": f"300 de ajuste + {number(max(0, len(data.points)-300))} transformados" if ml_ready else "Modelo real pendiente de validación", "Dónde mostrarlo": "Mapa, tooltip y metadatos"},
+            {"Criterio (máx. 2 puntos)": "K-means e interpretación", "Evidencia disponible": "3 centroides fijos; medias y contraste con perfiles" if ml_ready else "Modelo real pendiente de validación", "Dónde mostrarlo": "Mapa UMAP y grupos"},
+            {"Criterio (máx. 2 puntos)": "Dashboard y defensa con cifras", "Evidencia disponible": "4 periodos de 1.500; comparación final e informe" if data.comparison_ready else "Comparación final pendiente", "Dónde mostrarlo": "Antes y después · PDF"},
+        ]
+        st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
     if exp.is_finished:
-        st.success("Ejecución completa: 6.000 eventos y resultados exportados. Descarga los ficheros de la defensa.")
-        for column, (label, path, mime) in zip(st.columns(3), (
-            ("CSV Ámbar", exp.paths.data / "ambar.csv", "text/csv"),
-            ("CSV Cobalto", exp.paths.data / "cobalto.csv", "text/csv"),
-            ("Informe de defensa · PDF", exp.paths.results / "Informe_Defensa_Tecnica.pdf", "application/pdf"),
-        ), strict=True):
-            column.download_button(label, path.read_bytes(), file_name=path.name, mime=mime)
+        with st.container(border=True):
+            st.subheader("Evidencia descargable")
+            st.caption("Ejecución completa: 6.000 eventos, proyección y resultados exportados.")
+            files = [("CSV Ámbar", exp.paths.data / "ambar.csv", "text/csv"),
+                     ("CSV Cobalto", exp.paths.data / "cobalto.csv", "text/csv"),
+                     ("Informe PDF", exp.paths.results / "Informe_Defensa_Tecnica.pdf", "application/pdf")]
+            for column, (label, path, mime) in zip(st.columns(3), files, strict=True):
+                column.download_button(label, path.read_bytes(), file_name=path.name, mime=mime, width="stretch")
+
+
+def render_dashboard(exp: Run) -> None:
+    n = exp.event_count
+    st.progress(n/6000, text=f"{number(n)} / 6.000 eventos · {number(n//2)} minutos simulados")
+    if n < 300:
+        st.info("Primera visualización en el evento 300; después, actualizaciones en 400, 500, …, 6000.")
+        return
+    data = _data(exp)
+    instant = pd.Timestamp(data.points.iloc[-1].instante).strftime("%d/%m/%Y %H:%M")
+    st.caption(f"Último ID: {n} · Instante simulado: {instant} · Datos de la ejecución actual")
+    render_overview(data)
+    first, second, third = st.tabs(TABS)
+    with first:
+        render_morris(exp, data)
+    with second:
+        render_map(exp, data)
+    with third:
+        render_comparison(exp, data)
+    render_evidence(exp, data)

@@ -15,7 +15,7 @@ printf '  CIBERSEGURIDAD BIG DATA - PREPARACION\n'
 printf '========================================\n\n'
 
 [[ -f "app.py" ]] || error "No encuentro app.py en la carpeta del script."
-[[ -f "requirements.txt" ]] || error "No encuentro requirements.txt en la carpeta del script."
+[[ -f "requirements-lock.txt" ]] || error "No encuentro requirements-lock.txt en la carpeta del script."
 
 printf '[1/3] Comprobando Python 3.12...\n'
 # Utilizar el entorno local si ya existe. Si no existe, buscar Python 3.12
@@ -57,8 +57,8 @@ fi
     || error "El entorno .venv no utiliza Python 3.12. Renombra ese entorno y vuelve a ejecutar este script."
 "$VENV_PY" --version
 
-printf '\n[2/3] Instalando dependencias de requirements.txt...\n'
-"$VENV_PY" -m pip install -r requirements.txt \
+printf '\n[2/3] Instalando dependencias de requirements-lock.txt...\n'
+"$VENV_PY" -m pip install -r requirements-lock.txt \
     || error "No se pudieron instalar las dependencias. Revisa tu conexion o los errores de pip."
 
 printf '\n[3/3] Verificando Streamlit y librerias principales...\n'

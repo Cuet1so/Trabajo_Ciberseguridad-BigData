@@ -1,0 +1,131 @@
+{
+  "fecha": "2026-11-24",
+  "ejecucion_navegador": "ejecuciones/eb7898f3d45a",
+  "estado": "completa",
+  "filas_csv": {
+    "ambar.csv": 3000,
+    "cobalto.csv": 3000
+  },
+  "eventos": 6000,
+  "entrenados": 300,
+  "transformados": 5700,
+  "actualizaciones": [
+    300,
+    400,
+    500,
+    600,
+    700,
+    800,
+    900,
+    1000,
+    1100,
+    1200,
+    1300,
+    1400,
+    1500,
+    1600,
+    1700,
+    1800,
+    1900,
+    2000,
+    2100,
+    2200,
+    2300,
+    2400,
+    2500,
+    2600,
+    2700,
+    2800,
+    2900,
+    3000,
+    3100,
+    3200,
+    3300,
+    3400,
+    3500,
+    3600,
+    3700,
+    3800,
+    3900,
+    4000,
+    4100,
+    4200,
+    4300,
+    4400,
+    4500,
+    4600,
+    4700,
+    4800,
+    4900,
+    5000,
+    5100,
+    5200,
+    5300,
+    5400,
+    5500,
+    5600,
+    5700,
+    5800,
+    5900,
+    6000
+  ],
+  "identidad_con_referencia": {
+    "datos/ambar.csv": true,
+    "datos/cobalto.csv": true,
+    "resultados/eventos_proyectados.csv": true,
+    "resultados/resumen_defensa.json": true,
+    "resultados/evolucion_morris.csv": true,
+    "resultados/evolucion_cambios.csv": true
+  },
+  "modulos_sin_cambios": {
+    "config.py": {
+      "sha256_antes": "bd1785497febe9dd6f7860c12b6bd2b020afe86ff8a91d3c699015460e938312",
+      "sha256_despues": "bd1785497febe9dd6f7860c12b6bd2b020afe86ff8a91d3c699015460e938312"
+    },
+    "simulator.py": {
+      "sha256_antes": "239ac7a9b4c67aef1b5f6597f1f93d6639bda39390f74058f6dc201e92961d3d",
+      "sha256_despues": "239ac7a9b4c67aef1b5f6597f1f93d6639bda39390f74058f6dc201e92961d3d"
+    },
+    "morris.py": {
+      "sha256_antes": "d318f5244ccaabb2af89e9738bf16cd0b00113ce23044c5fa20275e1874ee969",
+      "sha256_despues": "d318f5244ccaabb2af89e9738bf16cd0b00113ce23044c5fa20275e1874ee969"
+    },
+    "analytics.py": {
+      "sha256_antes": "51e253ce12811051d0c992d41cbd12180629c574e8fc5d56c8430454dd26dfb4",
+      "sha256_despues": "51e253ce12811051d0c992d41cbd12180629c574e8fc5d56c8430454dd26dfb4"
+    },
+    "pipeline.py": {
+      "sha256_antes": "89496dc2995b2b1c485f309e36fd016b6ca65c2fa9f094eccdca5a7123f45adf",
+      "sha256_despues": "89496dc2995b2b1c485f309e36fd016b6ca65c2fa9f094eccdca5a7123f45adf"
+    },
+    "detection.py": {
+      "sha256_antes": "ee28ce9a114239e019abc77a3e02b3aea6344059b57ac1391d05961f4c1149ac",
+      "sha256_despues": "ee28ce9a114239e019abc77a3e02b3aea6344059b57ac1391d05961f4c1149ac"
+    },
+    "playback.py": {
+      "sha256_antes": "797db95b5638293f7a3d540b6948cf78310d955e647e0e108f28ccb2b03b1a8e",
+      "sha256_despues": "797db95b5638293f7a3d540b6948cf78310d955e647e0e108f28ccb2b03b1a8e"
+    },
+    "report.py": {
+      "sha256_antes": "a445594e5d24dd8ea8210e07a3de2bd16f76f52b3d4b026f5a775b1af8e0c80b",
+      "sha256_despues": "a445594e5d24dd8ea8210e07a3de2bd16f76f52b3d4b026f5a775b1af8e0c80b"
+    },
+    "pdf_report.py": {
+      "sha256_antes": "9d559dd995329abdf9ad6f3dcc1810d5e5e2bb1baaaf3b01d057a66240349882",
+      "sha256_despues": "9d559dd995329abdf9ad6f3dcc1810d5e5e2bb1baaaf3b01d057a66240349882"
+    },
+    "review.py": {
+      "sha256_antes": "32f6b8b55ac21418ffc4a708b2fab8d05c9d03fb5b7386c20ceb9fa723bc6e4a",
+      "sha256_despues": "32f6b8b55ac21418ffc4a708b2fab8d05c9d03fb5b7386c20ceb9fa723bc6e4a"
+    },
+    "storage.py": {
+      "sha256_antes": "4cd57aba0d29fdea850d87d02ad8629fecdd3b114f971b6b2b8f57dd129b4632",
+      "sha256_despues": "4cd57aba0d29fdea850d87d02ad8629fecdd3b114f971b6b2b8f57dd129b4632"
+    },
+    "validation.py": {
+      "sha256_antes": "26231691e6809f0089e558ad42f948048c8f6131d12412153ac5bc13c3abac02",
+      "sha256_despues": "26231691e6809f0089e558ad42f948048c8f6131d12412153ac5bc13c3abac02"
+    }
+  },
+  "sin_errores_javascript": true
+}

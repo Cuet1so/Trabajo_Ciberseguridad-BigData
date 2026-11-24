@@ -1,0 +1,10 @@
+{
+  "revision": "Tres vistas, totales CSV, diferencia en diferencias y filtros visibles",
+  "simulacion": "Generación real desde 1 hasta 6000, primera vista 300, pausa, rerun, lote 400, reanudación y fin",
+  "ruta_simulacion": "Ejecución local: ejecuciones/56ff818592fe",
+  "movil": {
+    "width": 390,
+    "documentWidth": 390
+  },
+  "errores_javascript": []
+}

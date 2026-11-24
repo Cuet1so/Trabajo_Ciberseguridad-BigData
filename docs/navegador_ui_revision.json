@@ -1,0 +1,32 @@
+{
+  "centroides": [
+    {
+      "name": "Centroide 0",
+      "text": [
+        "C0"
+      ],
+      "type": "scattergl"
+    },
+    {
+      "name": "Centroide 1",
+      "text": [
+        "C1"
+      ],
+      "type": "scattergl"
+    },
+    {
+      "name": "Centroide 2",
+      "text": [
+        "C2"
+      ],
+      "type": "scattergl"
+    }
+  ],
+  "tooltip": "Instante, cuentas e IP visibles al pasar el cursor por un punto real",
+  "revision": "Tres vistas, totales CSV, diferencia en diferencias y filtros visibles",
+  "movil": {
+    "width": 390,
+    "documentWidth": 390
+  },
+  "errores_javascript": []
+}

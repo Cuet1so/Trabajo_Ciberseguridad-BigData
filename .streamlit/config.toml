@@ -1,10 +1,26 @@
 [theme]
 base = "light"
-primaryColor = "#276c9c"
-backgroundColor = "#f7f9fc"
-secondaryBackgroundColor = "#edf2f7"
-textColor = "#172b3e"
+primaryColor = "#2864DD"
+backgroundColor = "#F3F6FA"
+secondaryBackgroundColor = "#EAF0F7"
+textColor = "#16263D"
 font = "sans serif"
+baseRadius = "0.65rem"
+buttonRadius = "0.5rem"
+borderColor = "#DFE6F0"
+dataframeHeaderBackgroundColor = "#EBF0F7"
+showWidgetBorder = true
+
+[theme.sidebar]
+primaryColor = "#86B4FF"
+backgroundColor = "#14233B"
+secondaryBackgroundColor = "#213450"
+textColor = "#E9EFF8"
+borderColor = "#39506F"
 
 [browser]
 gatherUsageStats = false
+
+[runner]
+# Termina el lote nativo en curso antes de atender un rerun de controles.
+fastReruns = false

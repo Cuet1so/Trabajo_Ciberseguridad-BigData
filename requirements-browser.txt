@@ -1,0 +1,2 @@
+# Verificación visual opcional; requiere Chrome instalado. No necesaria para ejecutar la aplicación.
+playwright==1.65.2
