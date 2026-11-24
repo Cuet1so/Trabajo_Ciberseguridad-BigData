@@ -63,6 +63,10 @@ Cada inicio de CLI archiva los productos anteriores de esa raíz en `historial/<
 
 `--sin-ml` conserva el diagnóstico de CSV y Morris, pero **no cumple el enunciado completo y no habilita el modo revisión**. Sus informes identifican expresamente que ML no se ha ejecutado. Los dobles de prueba tampoco se presentan como ejecución real.
 
+## Inicio y simulación
+
+La aplicación abre en **Inicio**, una presentación del experimento, sus técnicas y lo que puedes descubrir. **Explorar la simulación** abre el espacio de trabajo sin generar eventos hasta que pulses Iniciar. La navegación lateral permite volver al inicio: la reproducción se pausa y conserva el progreso de la sesión. El acceso directo `-- --review .` sigue abriendo los resultados guardados.
+
 ## Las tres vistas
 
 El resumen superior destaca las cuentas y los fallos de Cobalto, su cambio respecto a Ámbar y el número de eventos. Las cifras usan formato español: `97.440` son noventa y siete mil cuatrocientos cuarenta intentos; `18,10` son cuentas por minuto. Los iconos de ayuda explican las unidades y el periodo de cada KPI. La conclusión final aparece solo al completar los cuatro periodos de 1.500 resúmenes.

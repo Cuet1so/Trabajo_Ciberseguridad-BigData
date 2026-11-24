@@ -22,11 +22,23 @@ args, _ = parser.parse_known_args()
 
 st.set_page_config(page_title="Observatorio de autenticación · Big Data", page_icon="🛡️", layout="wide")
 apply_theme()
-page_header()
 if "clock" not in st.session_state:
     st.session_state.clock = PlaybackClock()
 clock: PlaybackClock = st.session_state.clock
 st.session_state.setdefault("review_path", str(args.review or Path(".")))
+
+
+from home import render_home
+st.session_state.setdefault("navigation", "Simulación" if args.review or "experiment" in st.session_state else "Inicio")
+with st.sidebar:
+    st.markdown("### CYBER DATA")
+    page = st.radio("Navegación", ["Inicio", "Simulación"], key="navigation")
+    st.divider()
+if page == "Inicio":
+    clock.pause()
+    render_home()
+    st.stop()
+page_header()
 
 
 @serialized_ui_operation

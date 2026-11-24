@@ -6,9 +6,15 @@ from pipeline import StreamingExperiment
 from tests.test_morris_pipeline import StubProjector
 
 
+def simulation_app(*args, **kwargs):
+    app = AppTest.from_file(*args, **kwargs)
+    app.session_state["navigation"] = "Simulación"
+    return app
+
+
 def test_real_dashboard_three_views_and_gateway_filter(real_run):
     exp, _ = real_run
-    app = AppTest.from_file(Path("app.py").resolve(), default_timeout=30)
+    app = simulation_app(Path("app.py").resolve(), default_timeout=30)
     app.session_state["experiment"] = exp
     app.session_state["playing"] = False
     app.run()
@@ -24,7 +30,7 @@ def test_real_dashboard_three_views_and_gateway_filter(real_run):
 
 def test_first_display_at_300_and_no_duplicate_rerun(tmp_path):
     with StreamingExperiment(tmp_path, projector=StubProjector()) as exp:
-        app = AppTest.from_file(Path("app.py").resolve(), default_timeout=30)
+        app = simulation_app(Path("app.py").resolve(), default_timeout=30)
         app.session_state["experiment"] = exp
         app.session_state["playing"] = False
         app.run()
@@ -47,7 +53,7 @@ def test_first_display_at_300_and_no_duplicate_rerun(tmp_path):
 
 def test_filters_period_group_and_empty_selection(real_run):
     exp, _ = real_run
-    app = AppTest.from_file(Path("app.py").resolve(), default_timeout=30)
+    app = simulation_app(Path("app.py").resolve(), default_timeout=30)
     app.session_state["experiment"] = exp
     app.run()
     from dashboard import filter_points
@@ -71,7 +77,7 @@ def test_ui_start_pause_resume_speed_and_confirmed_reset(tmp_path, monkeypatch):
     def engine(path, **kwargs):
         return original(path, projector=StubProjector(), **kwargs)
     monkeypatch.setattr(pipeline, "StreamingExperiment", engine)
-    app = AppTest.from_file(Path("app.py").resolve(), default_timeout=30)
+    app = simulation_app(Path("app.py").resolve(), default_timeout=30)
     app.run()
     assert "experiment" not in app.session_state
     app.text_input(key="runs_directory").set_value(str(tmp_path)).run()
@@ -107,7 +113,7 @@ def test_ui_review_uses_same_figures_without_generator(real_run, monkeypatch):
     exp, _ = real_run
     import pipeline
     monkeypatch.setattr(pipeline, "StreamingExperiment", lambda *a, **kw: (_ for _ in ()).throw(AssertionError("No generar")))
-    app = AppTest.from_file(Path("app.py").resolve(), default_timeout=30).run()
+    app = simulation_app(Path("app.py").resolve(), default_timeout=30).run()
     app.radio(key="mode").set_value("Revisión").run()
     app.text_input(key="review_path").set_value(str(exp.output_dir)).run()
     app.button(key="load_review").click().run()
@@ -125,7 +131,7 @@ def test_failed_run_rerun_stays_usable(tmp_path):
     exp = StreamingExperiment(tmp_path, projector=Failing())
     with pytest.raises(RuntimeError):
         exp.step()
-    app = AppTest.from_file(Path("app.py").resolve(), default_timeout=30)
+    app = simulation_app(Path("app.py").resolve(), default_timeout=30)
     app.session_state["experiment"] = exp
     app.run()
     app.run()
@@ -149,7 +155,7 @@ def test_ui_kpis_reset_filters_and_reuse_snapshot(real_run, monkeypatch):
         return original()
 
     monkeypatch.setattr(exp, "from_csv", counted_csv)
-    app = AppTest.from_file(Path("app.py").resolve(), default_timeout=30)
+    app = simulation_app(Path("app.py").resolve(), default_timeout=30)
     app.session_state["experiment"] = exp
     app.run()
     expected_accounts = raw.loc[(raw.pasarela == "Cobalto") & (raw.id > 3000), "cuentas"].mean()

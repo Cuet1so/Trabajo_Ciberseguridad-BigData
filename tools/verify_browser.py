@@ -78,7 +78,7 @@ def main() -> None:
         evidence["restablecer"] = "Restablece ambas pasarelas, periodo completo y los tres grupos"
         evidence["revision"] = "Tres vistas, totales CSV, diferencia en diferencias y filtros visibles"
         if args.simulate:
-            page.get_by_text("Simulación", exact=True).click()
+            page.get_by_role("radiogroup", name="Modo", exact=True).get_by_text("Simulación", exact=True).click()
             # Da tiempo para pausar en el primer punto de actualización oficial.
             page.get_by_role("slider").press("End")
             expect(page.get_by_role("slider")).to_have_value("5")
