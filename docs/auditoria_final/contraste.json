@@ -1,0 +1,62 @@
+[
+  {
+    "elemento": "texto",
+    "frente": "#16263D",
+    "fondo": "#FFFFFF",
+    "contraste": 15.231250722979672
+  },
+  {
+    "elemento": "secundario",
+    "frente": "#52647B",
+    "fondo": "#F3F6FA",
+    "contraste": 5.586976487171703
+  },
+  {
+    "elemento": "accion",
+    "frente": "#2864DD",
+    "fondo": "#FFFFFF",
+    "contraste": 5.306804809180965
+  },
+  {
+    "elemento": "Ámbar",
+    "frente": "#946008",
+    "fondo": "#FFFFFF",
+    "contraste": 5.335589928418722
+  },
+  {
+    "elemento": "Cobalto",
+    "frente": "#2864DD",
+    "fondo": "#FFFFFF",
+    "contraste": 5.306804809180965
+  },
+  {
+    "elemento": "grupo_0",
+    "frente": "#128378",
+    "fondo": "#FFFFFF",
+    "contraste": 4.622035584503609
+  },
+  {
+    "elemento": "grupo_1",
+    "frente": "#6753C5",
+    "fondo": "#FFFFFF",
+    "contraste": 5.800689871648843
+  },
+  {
+    "elemento": "grupo_2",
+    "frente": "#B93F65",
+    "fondo": "#FFFFFF",
+    "contraste": 5.300651251221407
+  },
+  {
+    "elemento": "sidebar",
+    "frente": "#B8C6DC",
+    "fondo": "#14233B",
+    "contraste": 9.112028729197686
+  },
+  {
+    "elemento": "hero",
+    "frente": "#D4E3F5",
+    "fondo": "#183B61",
+    "contraste": 8.767136958463324
+  }
+]

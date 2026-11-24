@@ -1,0 +1,27 @@
+{
+  "imports_s": 2.6910216249525547,
+  "runs": [
+    {
+      "fase": "primera_en_proceso",
+      "primeros_300_s": 7.5930931670591235,
+      "lote_media_s": 0.15940083982422948,
+      "lote_p95_s": 0.15616935803554946,
+      "total_s": 16.678979334188625,
+      "render_inicial_s": 0.9945369579363614,
+      "filtro_media_s": 0.16287313285283744,
+      "filtro_p95_s": 0.17563066598959268,
+      "max_rss_bytes": 383025152
+    },
+    {
+      "fase": "caliente_mismo_proceso",
+      "primeros_300_s": 0.5688960829284042,
+      "lote_media_s": 0.09667336924834863,
+      "lote_p95_s": 0.0981488167773932,
+      "total_s": 6.079323292011395,
+      "render_inicial_s": 0.23068120889365673,
+      "filtro_media_s": 0.1579426082316786,
+      "filtro_p95_s": 0.1689198744017631,
+      "max_rss_bytes": 417906688
+    }
+  ]
+}

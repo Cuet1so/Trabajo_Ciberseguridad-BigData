@@ -30,3 +30,5 @@ Las modificaciones de integración no cambian la generación, Morris, UMAP, K-me
 Evidencias: [JUnit de integración](pytest-github.xml), [validación visual del rediseño](REDISENO_UI.md), [navegador](navegador_ui.json) y [capturas](capturas_ui/).
 
 Se respetan las exclusiones de `.gitignore`: entornos virtuales, cachés, credenciales, temporales, históricos y ejecuciones redundantes. Se incluyen los CSV, modelos, informe PDF y metadatos de referencia como entregables del trabajo. Windows sigue pendiente de ejecución nativa; no se modifica esa limitación documentada.
+
+Nota de auditoría 24/11/2026: se retiró `assets/powerbi.css` tras comprobar que no tenía referencias funcionales; los estilos vigentes están en `ui_theme.py`.

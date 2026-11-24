@@ -1,0 +1,12 @@
+[
+  {
+    "version": "antes",
+    "servidor_salud_s": 0.9993749579880387,
+    "inicio_visible_s": 5.083567457972094
+  },
+  {
+    "version": "despues",
+    "servidor_salud_s": 0.8344457920175046,
+    "inicio_visible_s": 4.480402667075396
+  }
+]

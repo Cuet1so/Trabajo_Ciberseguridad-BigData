@@ -2,10 +2,10 @@
 setlocal EnableExtensions DisableDelayedExpansion
 cd /d "%~dp0" || goto error
 
-title Ciberseguridad Big Data - Preparacion del entorno
+title CYBER DATA - Preparacion del entorno
 
 echo =====================================================
-echo  BIG DATA - PREPARACION AUTOMATICA PARA WINDOWS
+echo  CYBER DATA - PREPARACION PARA WINDOWS
 echo =====================================================
 echo.
 
@@ -13,8 +13,8 @@ if not exist "app.py" (
     echo [ERROR] Falta app.py. Copia este archivo a la raiz del proyecto.
     goto error
 )
-if not exist "requirements.txt" (
-    echo [ERROR] Falta requirements.txt.
+if not exist "requirements-lock.txt" (
+    echo [ERROR] Falta requirements-lock.txt.
     goto error
 )
 
@@ -40,8 +40,8 @@ if errorlevel 1 (
 )
 
 echo.
-echo [3/4] Instalando dependencias de requirements.txt...
-".venv\Scripts\python.exe" -m pip install -r "requirements.txt"
+echo [3/4] Instalando dependencias de requirements-lock.txt...
+".venv\Scripts\python.exe" -m pip install -r "requirements-lock.txt"
 if errorlevel 1 (
     echo [ERROR] La instalacion de dependencias ha fallado.
     goto error
@@ -49,7 +49,10 @@ if errorlevel 1 (
 
 echo.
 echo [4/4] Verificando Streamlit, UMAP y K-means...
-".venv\Scripts\python.exe" -c "import streamlit, umap, sklearn, pandas, plotly; print('Dependencias comprobadas.')"
+".venv\Scripts\python.exe" -c "import streamlit, umap, sklearn, pandas, plotly; print('Importaciones comprobadas.')"
+if errorlevel 1 goto error
+
+".venv\Scripts\python.exe" -m pip check
 if errorlevel 1 goto error
 
 echo.
@@ -70,7 +73,10 @@ endlocal & exit /b 0
 :crear_entorno
 call :detectar_python
 if not defined PY312 (
-    echo [INFO] Python 3.12 no encontrado. Instalando con winget...
+    echo [INFO] Python 3.12 no encontrado.
+    choice /C SN /N /M "Instalar Python 3.12 mediante winget? [S/N]: "
+    if errorlevel 2 exit /b 1
+    if errorlevel 1 (ver >nul) else (exit /b 1)
     where winget >nul 2>&1
     if errorlevel 1 (
         echo [ERROR] No esta disponible winget en este Windows.

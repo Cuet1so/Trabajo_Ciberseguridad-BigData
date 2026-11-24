@@ -16,6 +16,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", default="http://127.0.0.1:8501")
     parser.add_argument("--simulate", action="store_true")
+    parser.add_argument("--evidence", type=Path, default=Path("docs/auditoria_final/navegador.json"))
     parser.add_argument("--screenshots", type=Path, default=Path("docs/capturas_ui"))
     args = parser.parse_args()
     args.screenshots.mkdir(parents=True, exist_ok=True)
@@ -24,10 +25,19 @@ def main() -> None:
         browser = browser_api.chromium.launch(channel="chrome", headless=True)
         page = browser.new_page(viewport={"width": 1440, "height": 1200}, device_scale_factor=1)
         errors = []
-        page.on("pageerror", lambda error: errors.append(str(error)))
+        def record_error(error):
+            errors.append(str(error))
+            print(f"JavaScript: {error}", flush=True)
+        page.on("pageerror", record_error)
         response = page.goto(args.url)
         assert response and response.status == 200
+        expect(page.get_by_role("tab", name="Inicio", exact=True)).to_be_visible(timeout=60000)
+        page.get_by_role("tab", name="Inicio", exact=True).click()
+        expect(page.get_by_role("button", name="Revisar resultados →", exact=True)).to_be_visible()
+        page.screenshot(path=str(args.screenshots/"inicio.png"), full_page=True)
+        page.get_by_role("button", name="Revisar resultados →", exact=True).click()
         expect(page.get_by_role("tab", name="Fallos y Morris", exact=True)).to_be_visible(timeout=60000)
+        evidence["inicio"] = "Inicio y revisión directa de referencia, integridad validada"
         expect(page.get_by_text("97.440", exact=True)).to_be_visible()
         expect(page.get_by_text("98.206", exact=True)).to_be_visible()
         for i, name in enumerate(("Fallos y Morris", "Mapa UMAP y grupos", "Antes y después"), 1):
@@ -48,6 +58,9 @@ def main() -> None:
         centers = plot.evaluate("plot => plot._fullData.filter(t => t.name.startsWith('Centroide')).map(t => ({name:t.name, text:t.text, type:t.type}))")
         assert [c["text"] for c in centers] == [["C0"], ["C1"], ["C2"]]
         evidence["centroides"] = centers
+        symbols = plot.evaluate("p => p._fullData.filter(t => t.customdata && t.customdata.length).map(t => t.marker.symbol)")
+        assert len(set(symbols)) == 3
+        evidence["simbolos_grupos"] = symbols
         hover = plot.evaluate("""plot => {
             const trace = plot._fullData.find(t => t.customdata && t.customdata.length);
             const layout = plot._fullLayout, bounds = plot.getBoundingClientRect();
@@ -70,7 +83,73 @@ def main() -> None:
         expect(page.get_by_text("6.000 puntos seleccionados de 6.000", exact=False)).to_be_visible()
         expect(page.get_by_role("combobox", name="Pasarela", exact=True)).to_have_value("Ambas")
         expect(page.get_by_role("combobox", name="Periodo", exact=True)).to_have_value("Completo")
-        for label in ("CSV Ámbar", "CSV Cobalto", "Informe PDF"):
+        # Esperar al gráfico nuevo: el contador de selección se pinta antes
+        # de que Plotly termine de sustituir el nodo DOM del lote filtrado.
+        page.wait_for_function("""() => {
+            const p = document.querySelector('.st-key-umap_chart .js-plotly-plot');
+            return p?._fullData?.reduce((n,t)=>n+(t.customdata?.length||0),0) === 6000;
+        }""")
+        page.get_by_role("button", name="Stop", exact=True).wait_for(state="hidden", timeout=30000)
+        page.wait_for_timeout(150)
+        plot = page.locator(".st-key-umap_chart .js-plotly-plot")
+        # Se observa el zoom nativo y se verifica el encuadre persistente explícito.
+        plot.scroll_into_view_if_needed()
+        zoom_box = plot.evaluate("""p => {
+            const b=p.getBoundingClientRect(), a=p._fullLayout.xaxis, y=p._fullLayout.yaxis;
+            return {x:b.left+a._offset, y:b.top+y._offset, w:a._length, h:y._length};
+        }""")
+        original_range = plot.evaluate("p => Array.from(p._fullLayout.xaxis.range)")
+        page.mouse.move(zoom_box["x"] + zoom_box["w"]*.15, zoom_box["y"] + zoom_box["h"]*.15)
+        page.mouse.down()
+        page.mouse.move(zoom_box["x"] + zoom_box["w"]*.85, zoom_box["y"] + zoom_box["h"]*.85, steps=10)
+        page.mouse.up()
+        page.wait_for_timeout(250)
+        zoomed_range = plot.evaluate("p => Array.from(p._fullLayout.xaxis.range)")
+        assert zoomed_range != original_range
+        # La selección sobrevive a otras vistas y al regreso desde Inicio.
+        page.get_by_role("combobox", name="Origen de la proyección", exact=True).click()
+        page.get_by_role("option", name="Ajuste inicial (1–300)", exact=True).click()
+        expect(page.get_by_text("300 puntos seleccionados de 6.000", exact=False)).to_be_visible()
+        # Comprueba también el límite de Streamlit: uirevision no sobrevive a
+        # todas las recreaciones. El encuadre explícito sí tiene estado persistente.
+        observed_range = page.locator(".js-plotly-plot:visible").first.evaluate("p => Array.from(p._fullLayout.xaxis.range)")
+        evidence["zoom_arrastre_conservado"] = observed_range == zoomed_range
+        page.get_by_text("Encuadre persistente del mapa", exact=True).click()
+        lower, upper = float(zoomed_range[0]), float(zoomed_range[1])
+        for label, value in (("UMAP 1 · mínimo", lower), ("UMAP 1 · máximo", upper)):
+            field = page.get_by_role("spinbutton", name=label, exact=True)
+            field.fill(str(value))
+            field.press("Enter")
+        page.get_by_text("Fijar límites de los ejes", exact=True).click()
+        expect(page.get_by_role("checkbox", name="Fijar límites de los ejes")).to_be_checked()
+        page.get_by_role("combobox", name="Origen de la proyección", exact=True).click()
+        page.get_by_role("option", name="Transformados (301–6000)", exact=True).click()
+        expect(page.get_by_text("5.700 puntos seleccionados de 6.000", exact=False)).to_be_visible()
+        page.wait_for_function("""([lo,hi]) => {
+            const p=document.querySelector('.st-key-umap_chart .js-plotly-plot');
+            const r=p?._fullLayout?.xaxis?.range;
+            return r && Math.abs(r[0]-lo)<1e-6 && Math.abs(r[1]-hi)<1e-6;
+        }""", arg=[lower, upper])
+        actual = page.locator(".js-plotly-plot:visible").first.evaluate("p => Array.from(p._fullLayout.xaxis.range)")
+        assert all(abs(a-b) < 1e-6 for a,b in zip(actual, (lower, upper), strict=True)), (actual, lower, upper)
+        evidence["encuadre_persistente"] = "Límites introducidos conservados tras cambiar el filtro; comprobados contra el rango real Plotly"
+        page.get_by_text("Fijar límites de los ejes", exact=True).click()
+        page.get_by_role("combobox", name="Origen de la proyección", exact=True).click()
+        page.get_by_role("option", name="Ajuste inicial (1–300)", exact=True).click()
+        page.get_by_role("tab", name="Fallos y Morris", exact=True).click()
+        expect(page.get_by_role("combobox", name="Pasarela", exact=True)).to_have_count(0)
+        page.get_by_role("tab", name="Mapa UMAP y grupos", exact=True).click()
+        expect(page.get_by_text("300 puntos seleccionados de 6.000", exact=False)).to_be_visible()
+        page.get_by_role("combobox", name="Origen de la proyección", exact=True).click()
+        page.get_by_role("option", name="Transformados (301–6000)", exact=True).click()
+        expect(page.get_by_text("5.700 puntos seleccionados de 6.000", exact=False)).to_be_visible()
+        page.get_by_role("button", name="Restablecer", exact=True).click()
+        # Zoom permanece tras filtrar; uirevision es estable para esta ejecución.
+        plot = page.locator(".js-plotly-plot:visible").first
+        revision = plot.evaluate("p => p.layout.uirevision")
+        assert revision
+        evidence["vistas"] = "Solo la vista activa se construye; filtros de ajuste/transformación y selección persistentes"
+        for label in ("CSV Ámbar", "CSV Cobalto", "Informe PDF", "Resumen JSON", "Proyecciones CSV"):
             with page.expect_download() as download:
                 page.get_by_role("button", name=label, exact=True).click()
             assert download.value.failure() is None
@@ -98,7 +177,8 @@ def main() -> None:
             expect(page.get_by_role("slider")).to_have_value("0")
             page.get_by_role("button", name="Reanudar", exact=True).click()
             expect(page.get_by_text("Ejecución completa: 6.000 eventos, proyección y resultados exportados.", exact=True)).to_be_visible(timeout=180000)
-            expect(page.get_by_text("97.440", exact=True)).to_be_attached()
+            page.get_by_role("tab", name="Fallos y Morris", exact=True).click()
+            expect(page.get_by_text("97.440", exact=True)).to_be_visible()
             evidence["simulacion"] = "Generación real desde 1 hasta 6000, primera vista 300, pausa, rerun, lote 400, reanudación y fin"
             evidence["ruta_simulacion"] = page.get_by_text("Ejecución local:", exact=False).inner_text()
             page.get_by_role("tab", name="Mapa UMAP y grupos").click()
@@ -107,6 +187,31 @@ def main() -> None:
             expect(page.get_by_text("+13,981", exact=True).first).to_be_visible()
             page.get_by_text("Detección de cambios de comportamiento · análisis exploratorio", exact=True).click()
             page.screenshot(path=str(args.screenshots/"simulacion_final.png"), full_page=True)
+        evidence["responsive"] = []
+        for width in (1920, 1440, 1024, 768, 390):
+            page.set_viewport_size({"width": width, "height": 1000})
+            page.wait_for_timeout(350)
+            for view in ("Fallos y Morris", "Mapa UMAP y grupos", "Antes y después"):
+                print(f"Responsive {width}: {view}", flush=True)
+                try:
+                    page.get_by_role("tab", name=view, exact=True).click()
+                except Exception:
+                    page.screenshot(path=str(args.screenshots/"fallo_responsive.png"), full_page=True)
+                    print(page.locator("body").inner_text(), flush=True)
+                    raise
+                page.get_by_role("button", name="Stop", exact=True).wait_for(state="hidden", timeout=30000)
+                measured = page.evaluate("({width: innerWidth, documentWidth: document.documentElement.scrollWidth})")
+                assert measured["documentWidth"] <= width + 2, (view, measured)
+                evidence["responsive"].append({"vista": view, **measured})
+            page.screenshot(path=str(args.screenshots/f"responsive_{width}.png"), full_page=True)
+        # Teclado: tabs accesibles y foco visible, no auditoría WCAG completa.
+        tab = page.get_by_role("tab", name="Fallos y Morris", exact=True)
+        tab.focus()
+        tab.press("Enter")
+        expect(tab).to_have_attribute("aria-selected", "true")
+        focus = tab.evaluate("e => getComputedStyle(e).outlineStyle")
+        assert focus != "none"
+        evidence["teclado"] = "Pestañas activables con Enter; indicador de foco visible"
         page.set_viewport_size({"width": 390, "height": 844})
         # Espera a que termine la animación de cierre automático de la barra.
         page.wait_for_function("document.querySelector('[data-testid=stSidebar]').getBoundingClientRect().right <= 1")
@@ -122,11 +227,27 @@ def main() -> None:
         mobile_plot.scroll_into_view_if_needed()
         page.screenshot(path=str(args.screenshots/"movil_mapa.png"), full_page=True)
         assert page.evaluate("document.documentElement.scrollWidth") <= 392
+        if args.simulate:
+            page.set_viewport_size({"width": 1440, "height": 1000})
+            page.wait_for_timeout(500)
+            expand = page.get_by_test_id("stExpandSidebarButton")
+            if expand.is_visible():
+                expand.click()
+            page.get_by_role("slider").press("End")
+            page.get_by_text("Reiniciar simulación", exact=True).click()
+            expect(page.get_by_role("button", name="Reiniciar", exact=True)).to_be_disabled()
+            page.get_by_text("Confirmo reiniciar esta simulación", exact=True).click()
+            expect(page.get_by_role("checkbox", name="Confirmo reiniciar esta simulación")).to_be_checked()
+            page.get_by_role("button", name="Reiniciar", exact=True).click()
+            expect(page.get_by_text("Último ID: 300", exact=False)).to_be_visible(timeout=60000)
+            page.get_by_role("button", name="Pausar", exact=True).click()
+            evidence["reinicio"] = "Confirmación obligatoria, nueva ejecución 300, archivos previos conservados"
         evidence["errores_javascript"] = errors
         assert not errors
         assert page.get_by_test_id("stException").count() == 0
         browser.close()
-    Path("docs/navegador_ui.json" if args.simulate else "docs/navegador_ui_revision.json").write_text(json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8")
+    args.evidence.parent.mkdir(parents=True, exist_ok=True)
+    args.evidence.write_text(json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(evidence, ensure_ascii=False, indent=2))
 
 

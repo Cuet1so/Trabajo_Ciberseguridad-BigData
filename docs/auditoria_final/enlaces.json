@@ -1,0 +1,46 @@
+[
+  {
+    "enlace": "docs/auditoria_final/INFORME.md",
+    "existe": true
+  },
+  {
+    "enlace": "docs/CUMPLIMIENTO.md",
+    "existe": true
+  },
+  {
+    "enlace": "enunciado_Trabajo_5.pdf",
+    "existe": true
+  },
+  {
+    "enlace": "resultados/Informe_Defensa_Tecnica.pdf",
+    "existe": true
+  },
+  {
+    "enlace": "resultados/resumen_defensa.json",
+    "existe": true
+  },
+  {
+    "enlace": "datos/ambar.csv",
+    "existe": true
+  },
+  {
+    "enlace": "datos/cobalto.csv",
+    "existe": true
+  },
+  {
+    "enlace": "https://github.com/Cuet1so/Trabajo_Ciberseguridad-BigData",
+    "verificado": "GitHub connector"
+  },
+  {
+    "enlace": "https://umap-learn.readthedocs.io/en/latest/reproducibility.html",
+    "verificado": "web.open"
+  },
+  {
+    "enlace": "https://docs.streamlit.io/develop/api-reference/execution-flow/st.fragment",
+    "verificado": "web.open"
+  },
+  {
+    "enlace": "https://scikit-learn.org/stable/model_persistence.html",
+    "verificado": "web.open"
+  }
+]

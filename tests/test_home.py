@@ -33,3 +33,17 @@ def test_return_home_pauses_and_preserves_progress(tmp_path):
         assert exp.event_count == 300
         assert original.equals(exp.from_csv())
         assert len(app.tabs) == 5
+
+
+def test_reference_shortcut_validates_without_generating(monkeypatch):
+    import pipeline
+    def forbidden(*args, **kwargs):
+        raise AssertionError("La revisión no genera eventos")
+    monkeypatch.setattr(pipeline, "StreamingExperiment", forbidden)
+    app = AppTest.from_file(Path("app.py").resolve(), default_timeout=30).run()
+    app.button(key="home_review").click().run()
+    assert not app.exception
+    assert app.radio(key="mode").value == "Revisión"
+    assert app.session_state["reviewed"].event_count == 6000
+    assert "experiment" not in app.session_state
+    assert [m.value for m in app.metric if m.label == "Fallos exactos"] == ["97.440", "98.206"]

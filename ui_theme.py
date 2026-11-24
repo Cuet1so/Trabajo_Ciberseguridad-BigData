@@ -9,9 +9,9 @@ import streamlit as st
 INK = "#16263D"
 MUTED = "#52647B"
 BLUE = "#2864DD"
-GATEWAY_COLORS = {"Ámbar": "#B77A0B", "Cobalto": BLUE}
+GATEWAY_COLORS = {"Ámbar": "#946008", "Cobalto": BLUE}
 # Los grupos tienen una paleta distinta a la de las pasarelas; sus ID son arbitrarios.
-CLUSTER_COLORS = {"0": "#128378", "1": "#6753C5", "2": "#C45074"}
+CLUSTER_COLORS = {"0": "#128378", "1": "#6753C5", "2": "#B93F65"}
 PLOT_CONFIG = {"displaylogo": False, "scrollZoom": False, "toImageButtonOptions": {"scale": 2}}
 
 CSS = """
@@ -30,15 +30,15 @@ h1,h2,h3{letter-spacing:-.025em}
 [data-testid="stMain"] [class*="st-key-panel_"],[data-testid="stMain"] [class*="st-key-summary_"]{background:white;border-radius:10px}
 [data-testid="stMain"] [class*="st-key-summary_"]{min-height:160px;gap:.45rem}
 [data-testid="stMain"] .st-key-summary_cobalto{border-top:3px solid #2864dd}
-[data-testid="stMain"] .st-key-summary_ambar{border-top:3px solid #b77a0b}
+[data-testid="stMain"] .st-key-summary_ambar{border-top:3px solid #946008}
 [data-testid="stMain"] .st-key-summary_fallos{border-top:3px solid #8d9bb0}
-[data-testid="stMain"] .st-key-summary_control{border-top:3px solid #b77a0b}
+[data-testid="stMain"] .st-key-summary_control{border-top:3px solid #946008}
 [data-testid="stMain"] .st-key-summary_events{border-top:3px solid #128378}
 [role="tablist"]{gap:6px;background:#e9eef6;padding:5px;border-radius:10px;border:1px solid #e0e6ef}
 [role="tab"]{height:42px;border-radius:7px;padding:0 18px;font-weight:600;background:transparent;flex:1;justify-content:center}
 [role="tab"][aria-selected="true"]{background:#fff;color:#2057c8;box-shadow:0 1px 3px #17325a13}
 [role="tab"] .react-aria-SelectionIndicator{display:none}
-[role="tab"]:focus-visible{outline:2px solid #2864dd;outline-offset:2px}
+:is(button, input, [role="combobox"], [role="tab"], summary):focus-visible{outline:2px solid #2864dd;outline-offset:2px}
 [role="tabpanel"]{padding-top:1rem}
 [data-testid="stSidebar"]{border-right:0}
 [data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding-top:1.3rem}
@@ -93,7 +93,7 @@ def chart_style(fig: go.Figure, *, height: int = 330, legend: bool = True) -> go
                       legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0, "title": None,
                               "font": {"size": 12}, "traceorder": "normal"}, showlegend=legend,
                       hoverlabel={"bgcolor": "#16263D", "font": {"color": "white", "size": 14}},
-                      modebar={"orientation": "h"})
+                      modebar={"orientation": "h"}, uirevision="preserve-view")
     fig.update_xaxes(showgrid=False, zeroline=False, automargin=True, title_font={"size": 13}, tickfont={"size": 12})
     fig.update_yaxes(gridcolor="#e9eef5", zeroline=False, automargin=True, title_font={"size": 13}, tickfont={"size": 12})
     return fig

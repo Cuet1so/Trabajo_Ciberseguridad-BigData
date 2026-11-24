@@ -1,0 +1,218 @@
+[
+  {
+    "archivo": "INICIAR_WINDOWS.cmd",
+    "estado": "modificado"
+  },
+  {
+    "archivo": "PREPARAR_ENTORNO.sh",
+    "estado": "modificado"
+  },
+  {
+    "archivo": "PREPARAR_WINDOWS.cmd",
+    "estado": "modificado"
+  },
+  {
+    "archivo": "README.md",
+    "estado": "modificado"
+  },
+  {
+    "archivo": "app.py",
+    "estado": "modificado"
+  },
+  {
+    "archivo": "assets/contraste_antes_despues.png",
+    "estado": "eliminado"
+  },
+  {
+    "archivo": "assets/powerbi.css",
+    "estado": "eliminado"
+  },
+  {
+    "archivo": "bi_charts.py",
+    "estado": "modificado"
+  },
+  {
+    "archivo": "dashboard.py",
+    "estado": "modificado"
+  },
+  {
+    "archivo": "docs/CUMPLIMIENTO.md",
+    "estado": "modificado"
+  },
+  {
+    "archivo": "docs/VALIDACION_GITHUB.md",
+    "estado": "modificado"
+  },
+  {
+    "archivo": "home.py",
+    "estado": "modificado"
+  },
+  {
+    "archivo": "tests/test_dashboard.py",
+    "estado": "modificado"
+  },
+  {
+    "archivo": "tests/test_home.py",
+    "estado": "modificado"
+  },
+  {
+    "archivo": "tools/verify_browser.py",
+    "estado": "modificado"
+  },
+  {
+    "archivo": "ui_runtime.py",
+    "estado": "modificado"
+  },
+  {
+    "archivo": "ui_theme.py",
+    "estado": "modificado"
+  },
+  {
+    "archivo": "run_catalog.py",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "tests/test_run_catalog.py",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "tools/performance_audit.py",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "tools/profile_ui.py",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/contraste.json",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/arranque.json",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/perfil_despues.json",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/INFORME.md",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/perfil_antes.json",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/antes_controlado.json",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/preparacion.txt",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/pruebas.txt",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/antes.json",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/PROGRESO.md",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/enlaces.json",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/navegador.json",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/pytest.xml",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/despues.json",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/validacion.json",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/despues_controlado.json",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/despues_final.json",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/capturas/detalle_vista_1.png",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/capturas/detalle_vista_2.png",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/capturas/detalle_vista_3.png",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/capturas/inicio.png",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/capturas/vista_3.png",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/capturas/vista_2.png",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/capturas/vista_1.png",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/capturas/responsive_1920.png",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/capturas/responsive_1440.png",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/capturas/responsive_390.png",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/capturas/responsive_768.png",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/capturas/movil_mapa.png",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/capturas/simulacion_final.png",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/capturas/mapa_completo.png",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/capturas/responsive_1024.png",
+    "estado": "nuevo"
+  },
+  {
+    "archivo": "docs/auditoria_final/capturas/movil.png",
+    "estado": "nuevo"
+  }
+]

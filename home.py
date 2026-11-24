@@ -4,6 +4,14 @@ import streamlit as st
 
 def open_workspace() -> None:
     st.session_state.navigation = "Simulación"
+    st.session_state.mode = "Simulación"
+
+
+def open_reference() -> None:
+    st.session_state.navigation = "Simulación"
+    st.session_state.mode = "Revisión"
+    st.session_state.review_path = "."
+    st.session_state.review_requested = True
 
 
 def render_home() -> None:
@@ -24,9 +32,11 @@ def render_home() -> None:
 <h1>Los fallos cuentan una parte.<br>Las cuentas revelan el cambio.</h1>
 <p>Explora cómo cambia el comportamiento de dos pasarelas de autenticación. Sigue el flujo de accesos, descubre patrones y comprueba por qué un volumen similar de fallos puede afectar a muchas más cuentas.</p>
 <div class="home-facts"><div><strong>6.000</strong><span>resúmenes del experimento</span></div><div><strong>2 pasarelas</strong><span>Ámbar y Cobalto</span></div><div><strong>3 técnicas</strong><span>Morris · UMAP · K-means</span></div></div></section>''', unsafe_allow_html=True)
-    left, right = st.columns([1, 2], vertical_alignment="center")
-    left.button("Explorar la simulación →", key="home_simulation", type="primary", width="stretch", on_click=open_workspace)
-    right.caption("Elige una ejecución nueva o revisa los resultados guardados. Tú controlas cuándo empieza el experimento.")
+    left, right = st.columns(2)
+    left.button("Nueva simulación →" if "experiment" not in st.session_state else "Continuar simulación →", key="home_simulation", type="primary", width="stretch", on_click=open_workspace)
+    left.caption("Configura y controla la reproducción. Los eventos empiezan al pulsar Iniciar.")
+    right.button("Revisar resultados →", key="home_review", width="stretch", on_click=open_reference)
+    right.caption("Abre la ejecución de referencia tras comprobar sus archivos e integridad.")
     st.subheader("¿Qué puedes descubrir?")
     cards = [("01 / MEDIR", "Cuánto está ocurriendo", "Compara el total exacto de intentos fallidos con la estimación de Morris. Observa cómo evoluciona el error de sus ocho registros por pasarela."),
              ("02 / EXPLORAR", "Qué patrones se repiten", "Recorre el mapa UMAP y sus tres grupos K-means. Filtra por pasarela y periodo para comprender las diferencias entre fallos concentrados y repartidos."),

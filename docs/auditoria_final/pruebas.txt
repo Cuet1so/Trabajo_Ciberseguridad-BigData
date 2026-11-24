@@ -1,0 +1,10 @@
+.......................................................                  [100%]
+=============================== warnings summary ===============================
+tests/test_analytics.py::test_scaler_and_umap_fit_once_then_only_transform
+  /Users/cueto/Desktop/UNI/CEU/ANO-26_27/1_Cuatrimestre/Big_Data/TrabajoFinal/Ciberseguridad_Big_Data_Tiempo_Real/.venv/lib/python3.12/site-packages/joblib/externals/loky/backend/context.py:134: UserWarning: Could not find the number of physical cores for the following reason:
+  invalid literal for int() with base 10: ''
+  Returning the number of logical cores instead. You can silence this warning by setting LOKY_MAX_CPU_COUNT to the number of cores you want to use.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+55 passed, 1 warning in 52.53s

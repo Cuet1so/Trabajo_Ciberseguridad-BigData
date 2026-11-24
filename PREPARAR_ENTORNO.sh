@@ -11,7 +11,7 @@ error() {
 }
 
 printf '\n========================================\n'
-printf '  CIBERSEGURIDAD BIG DATA - PREPARACION\n'
+printf '  CYBER DATA - PREPARACION\n'
 printf '========================================\n\n'
 
 [[ -f "app.py" ]] || error "No encuentro app.py en la carpeta del script."
@@ -62,8 +62,10 @@ printf '\n[2/3] Instalando dependencias de requirements-lock.txt...\n'
     || error "No se pudieron instalar las dependencias. Revisa tu conexion o los errores de pip."
 
 printf '\n[3/3] Verificando Streamlit y librerias principales...\n'
-"$VENV_PY" -c 'import streamlit, umap, sklearn; print("Dependencias verificadas correctamente.")' \
+"$VENV_PY" -c 'import streamlit, umap, sklearn, pandas, plotly; print("Dependencias verificadas correctamente.")' \
     || error "No se han podido importar Streamlit, UMAP y scikit-learn."
+
+"$VENV_PY" -m pip check || error "Hay dependencias incompatibles. Revisa pip check antes de iniciar."
 
 printf '\n========================================\n'
 printf '       CONFIGURACION COMPLETADA\n'
@@ -73,3 +75,5 @@ printf 'Si tu terminal ya muestra (.venv), ejecuta:\n'
 printf '  python -m streamlit run app.py\n\n'
 printf 'Si NO tienes el entorno activado, ejecuta:\n'
 printf '  %s -m streamlit run app.py\n\n' "$VENV_PY"
+
+printf "\nDashboard: http://localhost:8501 · Detener con Ctrl+C.\n"

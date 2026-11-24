@@ -44,7 +44,8 @@ def umap_map(points: pd.DataFrame, all_points: pd.DataFrame, centers: np.ndarray
     data = points.copy()
     data["grupo"] = data.cluster.astype(str)
     data["fase"] = np.where(data.id <= 300, "Ajuste inicial", "Transformación posterior")
-    fig = px.scatter(data, x="umap_x", y="umap_y", color="grupo",
+    fig = px.scatter(data, x="umap_x", y="umap_y", color="grupo", symbol="grupo",
+                     symbol_map={"0": "circle", "1": "diamond", "2": "square"},
                      color_discrete_map=CLUSTER_COLORS, category_orders={"grupo": ["0", "1", "2"]},
                      custom_data=["id", "instante", "pasarela", "fallos", "cuentas", "ips_origen", "cluster", "fase", "perfil"],
                      render_mode="webgl", opacity=.65)

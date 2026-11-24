@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 from html import escape
+from math import isfinite
 from typing import TYPE_CHECKING, TypeAlias
+from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
@@ -12,6 +14,7 @@ import streamlit as st
 import bi_charts as charts
 from bi_metrics import DashboardData, PERIOD_NAMES, PROFILE_NAMES, build_dashboard_data, filter_points, number
 from config import GATEWAYS, PROFILES
+from ui_runtime import remember_view
 from report import cluster_characterization, morris_metrics
 from ui_theme import CLUSTER_COLORS, GATEWAY_COLORS, chart_style, insight, plot
 
@@ -61,7 +64,7 @@ def render_overview(data: DashboardData) -> None:
             ("summary_events", "Eventos analizados", number(len(data.points)), None,
              "3.000 por pasarela · 3 grupos", "Cada evento es un resumen por minuto y pasarela; hay dos resúmenes por minuto simulado."),
         ]
-        title = "El cambio se hace visible al observar las cuentas"
+        title = "Comparación final: alcance sobre las cuentas y volumen de fallos"
         insight(title, f"Cobalto cambia {number(accounts.difference, 3, signed=True)} cuentas/min "
                 f"({number(accounts.percentage, 2, signed=True)} %), frente a {number(failures.difference, 3, signed=True)} fallos/min. "
                 "Comparar volumen y alcance permite interpretar el comportamiento.")
@@ -102,18 +105,20 @@ def render_morris(exp: Run, data: DashboardData) -> None:
         st.subheader("Precisión de la estimación")
         st.caption("Menor porcentaje significa menor error respecto al CSV.")
         plot(charts.morris_error(history), "morris_error_chart")
-    with st.expander("Cómo funciona Morris · inspeccionar los ocho registros"):
-        st.write("Cada intento fallido produce un sorteo independiente por registro. Si **u < 2⁻ᶜ**, "
-                 "el registro aumenta. La media de **ocho estimaciones 2ᶜ − 1** reduce la varianza, pero no elimina el error aleatorio.")
-        rows = [{"Pasarela": g, "Registro": i+1, "Valor c": c, "Estimación individual": 2**c-1}
-                for g in GATEWAYS for i, c in enumerate(exp.morris.counters[g].registers)]
-        registers = pd.DataFrame(rows)
-        a, b = st.columns([1, 1.3])
-        with a:
-            _table(registers, decimals=0)
-        with b:
-            fig = px.bar(registers, x="Registro", y="Estimación individual", color="Pasarela", barmode="group", color_discrete_map=GATEWAY_COLORS)
-            plot(chart_style(fig, height=360), "registers_chart")
+    panel = st.expander("Cómo funciona Morris · inspeccionar los ocho registros", key="registers_open", on_change="rerun")
+    if panel.open:
+        with panel:
+            st.write("Cada intento fallido produce un sorteo independiente por registro. Si **u < 2⁻ᶜ**, "
+                     "el registro aumenta. La media de **ocho estimaciones 2ᶜ − 1** reduce la varianza, pero no elimina el error aleatorio.")
+            rows = [{"Pasarela": g, "Registro": i+1, "Valor c": c, "Estimación individual": 2**c-1}
+                    for g in GATEWAYS for i, c in enumerate(exp.morris.counters[g].registers)]
+            registers = pd.DataFrame(rows)
+            a, b = st.columns([1, 1.3])
+            with a:
+                _table(registers, decimals=0)
+            with b:
+                fig = px.bar(registers, x="Registro", y="Estimación individual", color="Pasarela", barmode="group", color_discrete_map=GATEWAY_COLORS)
+                plot(chart_style(fig, height=360), "registers_chart")
 
 
 def _reset_filters() -> None:
@@ -121,6 +126,7 @@ def _reset_filters() -> None:
     st.session_state.period_filter = "Completo"
     st.session_state.group_filter = [0, 1, 2]
     st.session_state.resetting_map_filters = True
+    st.session_state.source_filter = "Todos"
 
 
 def render_map(exp: Run, data: DashboardData) -> None:
@@ -128,20 +134,43 @@ def render_map(exp: Run, data: DashboardData) -> None:
     st.caption("Cada punto es un resumen. El color identifica su grupo K-means; las cruces C0, C1 y C2 son los centroides fijos.")
     with st.container(border=True):
         a, b, c, d = st.columns([1, 1, 1.3, .7], vertical_alignment="bottom")
-        gateway = a.selectbox("Pasarela", ["Ambas", *GATEWAYS], key="gateway_filter")
-        period = b.selectbox("Periodo", ["Completo", "Primera mitad", "Segunda mitad"], key="period_filter")
+        gateway = a.selectbox("Pasarela", ["Ambas", *GATEWAYS], key="gateway_filter", persist_state="session", on_change="rerun")
+        period = b.selectbox("Periodo", ["Completo", "Primera mitad", "Segunda mitad"], key="period_filter", persist_state="session", on_change="rerun")
         # El valor inicial explícito también se conserva al remontar el widget
         # tras cambiar de modo. En el callback la selección ya viene del estado.
         resetting = st.session_state.pop("resetting_map_filters", False)
-        groups = c.multiselect("Grupos K-means", [0, 1, 2], default=None if resetting else [0, 1, 2], key="group_filter")
+        groups = c.multiselect("Grupos K-means", [0, 1, 2], default=None if resetting else [0, 1, 2], key="group_filter", persist_state="session", on_change="rerun")
         d.button("Restablecer", key="reset_filters", on_click=_reset_filters, width="stretch", help="Mostrar ambas pasarelas, todo el periodo y los tres grupos.")
         selected = filter_points(data.points, gateway, period, groups)
+        source = st.selectbox("Origen de la proyección", ["Todos", "Ajuste inicial (1–300)", "Transformados (301–6000)"],
+                              key="source_filter", persist_state="session", on_change="rerun",
+                              help="Filtra los puntos visibles; no cambia los modelos ni sus coordenadas.")
+        if source != "Todos":
+            selected = selected[selected.id.le(300) if source.startswith("Ajuste") else selected.id.gt(300)]
         trained = int(selected.id.le(300).sum())
         st.caption(f"{number(len(selected))} puntos seleccionados de {number(len(data.points))} · "
                    f"{number(trained)} de ajuste inicial · {number(len(selected)-trained)} transformados después")
     main, aside = st.columns([2.1, 1])
     with main, st.container(border=True, key="panel_map"):
-        plot(charts.umap_map(selected, data.points, exp.centroids, groups), "umap_chart")
+        figure = charts.umap_map(selected, data.points, exp.centroids, groups)
+        figure.update_layout(uirevision=f"{exp.output_dir}:umap")
+        with st.expander("Encuadre persistente del mapa"):
+            st.caption("El zoom de arrastre puede restablecerse al filtrar. Fija aquí los límites para conservar la misma zona durante la sesión.")
+            fixed = st.checkbox("Fijar límites de los ejes", key="fixed_map_bounds", persist_state="session")
+            limits = []
+            for axis, label in (("xaxis", "UMAP 1"), ("yaxis", "UMAP 2")):
+                low, high = figure.layout[axis].range
+                left, right = st.columns(2)
+                minimum = left.number_input(f"{label} · mínimo", value=float(low), key=f"map_{axis}_min", persist_state="session")
+                maximum = right.number_input(f"{label} · máximo", value=float(high), key=f"map_{axis}_max", persist_state="session")
+                limits.append((axis, minimum, maximum))
+            valid = all(isfinite(lo) and isfinite(hi) and lo < hi for _, lo, hi in limits)
+            if fixed and valid:
+                for axis, minimum, maximum in limits:
+                    figure.update_layout(**{axis: {"range": [minimum, maximum], "autorange": False}})
+            elif fixed:
+                st.warning("Cada mínimo debe ser menor que su máximo y ambos deben ser finitos. Se muestra el plano completo.")
+        plot(figure, "umap_chart")
         st.caption("UMAP 1 y 2 no tienen unidades físicas. Los límites del plano se conservan al filtrar; los modelos no se vuelven a entrenar.")
     with aside:
         st.subheader("Lectura de la selección")
@@ -182,42 +211,44 @@ def render_map(exp: Run, data: DashboardData) -> None:
 
 
 def render_detection(exp: Run) -> None:
-    with st.expander("Detección de cambios de comportamiento · análisis exploratorio"):
-        detector, cfg = exp.detector, exp.detector.config
-        found = detector.first_detection
-        st.caption(f"Media móvil de {cfg.window} resúmenes por pasarela · referencia: primeros {cfg.baseline_events} observados · evaluación cada {cfg.stride} minutos")
-        if found:
-            st.warning(f"Cambio observado · Primera detección en ID {found['id']} · {found['instante']}")
-            a, b, c = st.columns(3)
-            a.metric("Cobalto en la detección", number(found["cuentas_Cobalto"], 2), help="Cuentas distintas/min en la ventana de detección.")
-            b.metric("Aumento sobre referencia", number(found["aumento_cobalto"], 2, signed=True))
-            c.metric("Aumento frente a Ámbar", number(found["diferencia_control"], 2, signed=True))
-        elif len(detector.baseline) < 2:
-            st.info("Construyendo la referencia con datos ya observados.")
-        else:
-            st.info("Estado normal según el criterio configurado: no se ha observado un cambio persistente.")
-        history = pd.DataFrame(detector.history)
-        if not history.empty:
-            for column, metric, unit in zip(st.columns(2), ("cuentas", "fallos"), ("Cuentas distintas/min", "Fallos/min"), strict=True):
-                with column:
-                    fig = go.Figure()
-                    for gateway in GATEWAYS:
-                        fig.add_trace(go.Scatter(x=history.instante, y=history[f"{metric}_{gateway}"], name=gateway,
-                                                 line={"color": GATEWAY_COLORS[gateway], "width": 2}))
-                        if metric == "cuentas" and gateway in detector.baseline:
-                            part = history[history.minuto >= cfg.baseline_events]
-                            fig.add_trace(go.Scatter(x=part.instante, y=[detector.baseline[gateway]]*len(part),
-                                                     name=f"Referencia {gateway}", line={"color": GATEWAY_COLORS[gateway], "dash": "dot"}))
-                    if found:
-                        fig.add_shape(type="line", x0=found["instante"], x1=found["instante"], y0=0, y1=1, yref="paper", line={"color": "#C45074", "dash": "dash"})
-                    chart_style(fig, height=320)
-                    fig.update_layout(yaxis_title=unit, hovermode="x unified")
-                    fig.update_xaxes(type="date", tickformat="%d/%m\n%H:%M", nticks=4)
-                    plot(fig, f"change_{metric}")
-        st.caption(f"Criterio: aumento Cobalto ≥ max({number(cfg.min_increase, 1)} cuentas/min, "
-                   f"{number(100*cfg.relative_increase)} % de su referencia), y aumento diferencial frente a Ámbar "
-                   f"≥ {number(cfg.min_control_gap, 1)} cuentas/min durante {cfg.persistence} ventanas consecutivas. "
-                   "No utiliza datos futuros ni conoce el evento del cambio. Las ventanas se solapan; esta heurística no prueba un incidente.")
+    panel = st.expander("Detección de cambios de comportamiento · análisis exploratorio", key="detection_open", on_change="rerun")
+    if panel.open:
+        with panel:
+            detector, cfg = exp.detector, exp.detector.config
+            found = detector.first_detection
+            st.caption(f"Media móvil de {cfg.window} resúmenes por pasarela · referencia: primeros {cfg.baseline_events} observados · evaluación cada {cfg.stride} minutos")
+            if found:
+                st.warning(f"Cambio observado · Primera detección en ID {found['id']} · {found['instante']}")
+                a, b, c = st.columns(3)
+                a.metric("Cobalto en la detección", number(found["cuentas_Cobalto"], 2), help="Cuentas distintas/min en la ventana de detección.")
+                b.metric("Aumento sobre referencia", number(found["aumento_cobalto"], 2, signed=True))
+                c.metric("Aumento frente a Ámbar", number(found["diferencia_control"], 2, signed=True))
+            elif len(detector.baseline) < 2:
+                st.info("Construyendo la referencia con datos ya observados.")
+            else:
+                st.info("Sin cambio persistente detectado con este criterio. Esto no demuestra un comportamiento normal.")
+            history = pd.DataFrame(detector.history)
+            if not history.empty:
+                for column, metric, unit in zip(st.columns(2), ("cuentas", "fallos"), ("Cuentas distintas/min", "Fallos/min"), strict=True):
+                    with column:
+                        fig = go.Figure()
+                        for gateway in GATEWAYS:
+                            fig.add_trace(go.Scatter(x=history.instante, y=history[f"{metric}_{gateway}"], name=gateway,
+                                                     line={"color": GATEWAY_COLORS[gateway], "width": 2}))
+                            if metric == "cuentas" and gateway in detector.baseline:
+                                part = history[history.minuto >= cfg.baseline_events]
+                                fig.add_trace(go.Scatter(x=part.instante, y=[detector.baseline[gateway]]*len(part),
+                                                         name=f"Referencia {gateway}", line={"color": GATEWAY_COLORS[gateway], "dash": "dot"}))
+                        if found:
+                            fig.add_shape(type="line", x0=found["instante"], x1=found["instante"], y0=0, y1=1, yref="paper", line={"color": "#C45074", "dash": "dash"})
+                        chart_style(fig, height=320)
+                        fig.update_layout(yaxis_title=unit, hovermode="x unified")
+                        fig.update_xaxes(type="date", tickformat="%d/%m\n%H:%M", nticks=4)
+                        plot(fig, f"change_{metric}")
+            st.caption(f"Criterio: aumento Cobalto ≥ max({number(cfg.min_increase, 1)} cuentas/min, "
+                       f"{number(100*cfg.relative_increase)} % de su referencia), y aumento diferencial frente a Ámbar "
+                       f"≥ {number(cfg.min_control_gap, 1)} cuentas/min durante {cfg.persistence} ventanas consecutivas. "
+                       "No utiliza datos futuros ni conoce el evento del cambio. Las ventanas se solapan; esta heurística no prueba un incidente.")
 
 
 def render_comparison(exp: Run, data: DashboardData) -> None:
@@ -261,13 +292,21 @@ def render_comparison(exp: Run, data: DashboardData) -> None:
                 st.markdown(f"**{title}**")
                 names = {f"porcentaje_grupo_{i}": f"Grupo {i}" for i in range(3)} | {f"porcentaje_{p}": PROFILE_NAMES[p] for p in PROFILES}
                 _table(data.periods[["pasarela", "mitad", *columns]].rename(columns=names))
-    with st.expander("Detalle numérico · medias, variaciones e IP de origen"):
-        _table(data.periods[["pasarela", "mitad", "minutos", "fallos_medios", "cuentas_medias", "ips_medias"]], decimals=3)
-        changes = data.changes.copy()
-        changes["metrica"] = changes.metrica.map(LABELS)
-        _table(changes.rename(columns={"metrica": "Medida por minuto", "antes": "Antes", "despues": "Después", "diferencia": "Cambio absoluto", "variacion_porcentaje": "Variación (%)"}), decimals=3)
-        plot(charts.before_after(data.periods, "ips_medias", "IP distintas/min"), "before_after_ips_medias")
+    panel = st.expander("Detalle numérico · medias, variaciones e IP de origen", key="details_open", on_change="rerun")
+    if panel.open:
+        with panel:
+            _table(data.periods[["pasarela", "mitad", "minutos", "fallos_medios", "cuentas_medias", "ips_medias"]], decimals=3)
+            changes = data.changes.copy()
+            changes["metrica"] = changes.metrica.map(LABELS)
+            _table(changes.rename(columns={"metrica": "Medida por minuto", "antes": "Antes", "despues": "Después", "diferencia": "Cambio absoluto", "variacion_porcentaje": "Variación (%)"}), decimals=3)
+            plot(charts.before_after(data.periods, "ips_medias", "IP distintas/min"), "before_after_ips_medias")
     render_detection(exp)
+
+
+@st.cache_data(show_spinner=False, max_entries=30)
+def _download_bytes(path: str, modified_ns: int, size: int) -> bytes:
+    """Archivos finales inmutables; ruta, tamaño y modificación invalidan la caché."""
+    return Path(path).read_bytes()
 
 
 def render_evidence(exp: Run, data: DashboardData) -> None:
@@ -288,9 +327,12 @@ def render_evidence(exp: Run, data: DashboardData) -> None:
             st.caption("Ejecución completa: 6.000 eventos, proyección y resultados exportados.")
             files = [("CSV Ámbar", exp.paths.data / "ambar.csv", "text/csv"),
                      ("CSV Cobalto", exp.paths.data / "cobalto.csv", "text/csv"),
-                     ("Informe PDF", exp.paths.results / "Informe_Defensa_Tecnica.pdf", "application/pdf")]
-            for column, (label, path, mime) in zip(st.columns(3), files, strict=True):
-                column.download_button(label, path.read_bytes(), file_name=path.name, mime=mime, width="stretch")
+                     ("Informe PDF", exp.paths.results / "Informe_Defensa_Tecnica.pdf", "application/pdf"),
+                     ("Resumen JSON", exp.paths.results / "resumen_defensa.json", "application/json"),
+                     ("Proyecciones CSV", exp.paths.results / "eventos_proyectados.csv", "text/csv")]
+            for column, (label, path, mime) in zip(st.columns(len(files)), files, strict=True):
+                column.download_button(label, _download_bytes(str(path.resolve()), path.stat().st_mtime_ns, path.stat().st_size),
+                                       file_name=path.name, mime=mime, width="stretch", on_click="ignore")
 
 
 def render_dashboard(exp: Run) -> None:
@@ -303,11 +345,13 @@ def render_dashboard(exp: Run) -> None:
     instant = pd.Timestamp(data.points.iloc[-1].instante).strftime("%d/%m/%Y %H:%M")
     st.caption(f"Último ID: {n} · Instante simulado: {instant} · Datos de la ejecución actual")
     render_overview(data)
-    first, second, third = st.tabs(TABS)
-    with first:
-        render_morris(exp, data)
-    with second:
-        render_map(exp, data)
-    with third:
-        render_comparison(exp, data)
+    means = data.raw.groupby("pasarela")[["cuentas", "fallos"]].mean()
+    st.caption("Medias de todos los minutos observados · " + " · ".join(
+        f"{gateway}: {number(means.loc[gateway, 'cuentas'], 2)} cuentas/min y {number(means.loc[gateway, 'fallos'], 2)} fallos/min"
+        for gateway in GATEWAYS))
+    tabs = st.tabs(TABS, key="dashboard_view", on_change=remember_view)
+    for tab, render in zip(tabs, (render_morris, render_map, render_comparison), strict=True):
+        if tab.open:
+            with tab:
+                render(exp, data)
     render_evidence(exp, data)

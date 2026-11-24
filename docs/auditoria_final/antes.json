@@ -1,0 +1,27 @@
+{
+  "imports_s": 3.113627125043422,
+  "runs": [
+    {
+      "fase": "primera_en_proceso",
+      "primeros_300_s": 8.102191666839644,
+      "lote_media_s": 0.1431531029949455,
+      "lote_p95_s": 0.12330179177224615,
+      "total_s": 16.261969749815762,
+      "render_inicial_s": 1.4485756249632686,
+      "filtro_media_s": 0.45212899181060495,
+      "filtro_p95_s": 0.5345014834310859,
+      "max_rss_bytes": 363659264
+    },
+    {
+      "fase": "caliente_mismo_proceso",
+      "primeros_300_s": 0.6566132078878582,
+      "lote_media_s": 0.10166714770572358,
+      "lote_p95_s": 0.1168808498419821,
+      "total_s": 6.451743499841541,
+      "render_inicial_s": 0.6302731249015778,
+      "filtro_media_s": 0.45844867518171667,
+      "filtro_p95_s": 0.5759905497543514,
+      "max_rss_bytes": 363659264
+    }
+  ]
+}

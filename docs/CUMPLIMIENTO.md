@@ -1,6 +1,6 @@
 # AUDITORÍA DE CUMPLIMIENTO DE LA RÚBRICA — 10 PUNTOS
 
-Fecha: 17/11/2026. Fuente oficial: `enunciado_Trabajo_5.pdf`, idéntico al PDF aportado. Esta tabla acredita requisitos comprobados; **no asigna una nota oficial ni garantiza un 10/10**. La prueba de navegador se suma a las pruebas automatizadas de Streamlit; la ejecución nativa en Windows queda pendiente.
+Actualización: 24/11/2026. Fuente oficial: `enunciado_Trabajo_5.pdf`, idéntico al PDF aportado. Esta tabla acredita requisitos comprobados; **no asigna una nota oficial ni garantiza un 10/10**. La prueba de navegador se suma a las pruebas automatizadas de Streamlit; la ejecución nativa en Windows queda pendiente.
 
 | Criterio de evaluación | Puntuación máxima | Requisitos comprobados | Archivo o función responsable | Prueba ejecutada | Evidencia obtenida | Estado |
 |---|---:|---|---|---|---|---|
@@ -9,6 +9,8 @@ Fecha: 17/11/2026. Fuente oficial: `enunciado_Trabajo_5.pdf`, idéntico al PDF a
 | Proyección de nuevos eventos con UMAP | 2 | Cuatro variables; scaler y UMAP ajustados una sola vez sobre 300 eventos globales; 150 por pasarela; 57 transformaciones de 100; 6.000 puntos finitos; sin reajuste | `FixedUMAPClusters.fit_initial`, `transform_new`; `StreamingExperiment.step` | `test_real_6000_single_training_no_future_refit`; `test_umap_real_fit_first_300_and_transform_next_100`; reutilización del modelo persistido | Observadores de llamadas reales: scaler.fit=1, UMAP.fit=1, transform=57; `eventos_proyectados.csv`; modelos y metadatos | VERIFICADO |
 | Agrupamiento K-means e interpretación | 2 | Tres centroides sobre proyección inicial; 57 predict sin reajuste; centros estables; medias por grupo; contraste con perfiles y porcentajes por periodo | `FixedUMAPClusters`; `cluster_characterization`; `comparison_table` | `test_real_6000_single_training_no_future_refit`; `test_real_statistics_csv_dashboard_pdf_agree`; `verificar.py --require-ml` | Grupos con 1221/3280/1499 puntos; matrices y frecuencias calculadas, centroides comprobados contra predict | VERIFICADO |
 | Dashboard y defensa con resultados numéricos | 2 | Tres vistas; primer mapa 300, actualización cada 100; filtros y tooltip; 1500 observaciones por mitad; defensa cuantificada y reproducible | `app.live`, `dashboard.render_dashboard`, `report.calculate_defense`, `pdf_report.build_defense_pdf` | `test_real_dashboard_three_views_and_gateway_filter`; `test_first_display_at_300_and_no_duplicate_rerun`; pruebas de filtros/controles/revisión; Chrome con `--simulate` | Tres vistas renderizadas; flujo real 1→6000; PDF de 5 páginas; cambio Cobalto +13,951 cuentas/min (+336,28 %), fallos −0,243/min; diferencia en diferencias +13,981 cuentas/min | VERIFICADO |
+
+La [auditoría 360º final](auditoria_final/INFORME.md) añade la validación actual de 55 pruebas, Chrome, rendimiento y accesibilidad parcial. Los modelos y requisitos oficiales se conservan.
 
 ## Matriz detallada del PDF
 

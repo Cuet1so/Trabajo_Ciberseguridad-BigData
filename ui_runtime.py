@@ -14,6 +14,12 @@ T = TypeVar("T")
 UI_LOCK = RLock()
 
 
+def remember_view() -> None:
+    """Las pestañas no admiten persist_state; guardamos la selección aparte."""
+    import streamlit as st
+    st.session_state.last_dashboard_view = st.session_state.dashboard_view
+
+
 def serialized_ui_operation(function: Callable[P, T]) -> Callable[P, T]:
     @wraps(function)
     def wrapped(*args: P.args, **kwargs: P.kwargs) -> T:
