@@ -1,6 +1,6 @@
 # Auditoría 360º — registro de continuidad
 
-Estado actual: P0, P1 y P2 completados. P3: validación final completada; checkout sincronizado; comprobaciones en destino completadas; publicación pendiente de cierre.
+Estado actual: P0–P3 completados. Checkout Definitivo sincronizado, validado y publicado.
 Base Git: `7f76c40b7ba3c440f7b70cc182c3c098f1d85e11` (main). Sin cambios ajenos en el checkout Definitivo al inspeccionarlo.
 Desarrollo: copia Ciberseguridad_Big_Data_Tiempo_Real; destino de uso: Definitivo/Trabajo5-Ciberseguridad_BigData_Tiempo_Real.
 Servidor de QA propio: puerto 8517. No detener el servidor del usuario en 8502.
@@ -10,7 +10,7 @@ Servidor de QA propio: puerto 8517. No detener el servidor del usuario en 8502.
 - P2: contraste corregido, símbolos por grupo, foco, textos precisos, encuadre persistente, separación temporizador/presentación para corregir error JS confirmado.
 - P3: README simplificado; informe y matriz redactados; limpieza de dos recursos sin uso. Ejecución nueva en ejecuciones/auditoria_final validada con --require-ml e idéntica a referencia en CSV, proyecciones y cifras; referencia sin cambios.
 - Benchmark definitivo: antes_controlado.json vs despues_final.json. Filtro caliente 448→159 ms; motor 6,10→5,97 s; RSS 371→434 MiB. No afirmar mejora de memoria ni aceleración de ML.
-- Pruebas: último pase previo al encuadre 54/54; pase con encuadre y navegador en curso. Registro final: pytest.xml y navegador.json (comprobar fechas/resultados antes de entregar).
+- Pruebas: último pase previo al encuadre 54/54; pase con encuadre y navegador completados. Registro final: pytest.xml y navegador.json (comprobar fechas/resultados antes de entregar).
 - QA: hubo un recorrido completo válido sin errores JS, pero arranque limpio reveló límite de uirevision. Mecanismo explícito de encuadre implementado y prueba real del rango añadida. No afirmar que el zoom nativo siempre persiste.
 - Windows/Linux nativos y auditoría WCAG integral pendientes por entorno.
 
@@ -29,3 +29,5 @@ Cierre de validación: 55/55 pruebas en 52,53 s; Chrome completo supera los cont
 Sincronización completada con comparación byte a byte, conservando Git y archivos sellados. Copiada también la ejecución nueva auditoria_final; 54 archivos auditados más manifiesto de cambios. `git diff --check` con cr-at-eol correcto (scripts CMD usan CRLF).
 
 Destino validado: 55 pruebas en 46,42 s, pip check y verificador ML real correctos. Preparado commit normal de la auditoría; no se modificaron los entregables sellados de referencia.
+
+Publicación completada: commit `8a576cf` en `origin/main`, push normal confirmado. Árbol de trabajo limpio tras publicar. Validación local final: 55 pruebas, pip check y verificador ML real correctos; Chrome sin errores JS. No quedan tareas funcionales pendientes; limitaciones de Windows/Linux nativos, accesibilidad integral y zoom nativo documentadas.

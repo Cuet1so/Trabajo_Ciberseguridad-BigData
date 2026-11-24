@@ -166,3 +166,5 @@ Los enlaces externos del README a UMAP, Streamlit y scikit-learn respondieron co
 Cambios sincronizados con la carpeta Definitivo utilizada para arrancar Streamlit; se compararon los bytes de cada archivo copiado. La ejecución nueva también se conserva allí en `ejecuciones/auditoria_final`. Los archivos de referencia sellados permanecen intactos. Inventario: `archivos.json`. Los scripts CMD conservan terminadores CRLF; `git -c core.whitespace=cr-at-eol diff --check` no detecta errores de espacios.
 
 Validación adicional en la carpeta de uso Definitivo: **55 pruebas superadas en 46,42 s**, `pip check` correcto y verificador de `ejecuciones/auditoria_final --require-ml` correcto. Evidencia: `pytest_definitivo.xml`.
+
+Publicado en GitHub mediante push normal: commit `8a576cf`, «Optimiza CYBER DATA y valida la entrega académica de extremo a extremo». Sin cambios destructivos de Git ni alteración de los resultados de referencia.
