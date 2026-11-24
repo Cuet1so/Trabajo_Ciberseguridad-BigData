@@ -1,0 +1,36 @@
+{
+  "eventos": 6000,
+  "ml_real": true,
+  "versiones": {
+    "python": "3.12.2",
+    "numpy": "2.5.5",
+    "pandas": "2.3.3",
+    "scipy": "1.18.1",
+    "scikit-learn": "1.9.1",
+    "umap-learn": "0.5.12",
+    "numba": "0.68.1",
+    "llvmlite": "0.50.0",
+    "pynndescent": "0.7.0",
+    "joblib": "1.6.0",
+    "streamlit": "1.67.0",
+    "plotly": "6.9.0",
+    "reportlab": "4.5.1"
+  },
+  "semilla_simulador": 42,
+  "schema": 1,
+  "estado": "completa",
+  "sha256": {
+    "datos/ambar.csv": "067b88f52300e5de2307554e512f92ceacb9fad43ba865caa26b8c88c3e0074c",
+    "datos/cobalto.csv": "7f44cca1265daa4b3b39870613347f51886b9c10f9b931ffebe9d75d2f7b5b0d",
+    "resultados/eventos_proyectados.csv": "2f18010d7b559ef2f17686f29613e54f2fe49131d49e55b4bbc1994cc53938bd",
+    "resultados/resumen_defensa.json": "8860c711e4c3649d4b3f7e2c3d0281f9fa1f41606e4bb80b56cd0fc6e2031285",
+    "resultados/evolucion_morris.csv": "09de873e8e1f394c9b2734ff07992924eff322cd2fb80b5ef7e72bad775a11d5",
+    "resultados/evolucion_cambios.csv": "41b613bd934ddfe1cb9355ce0f5106b1e4744f71c1cc4edcab2873e0943a99d5",
+    "resultados/Informe_Defensa_Tecnica.pdf": "50c21a0771a3182aab1218102bf118fca68881abbf8e819f19357302b4c0c6f6",
+    "resultados/DEFENSA_TECNICA.md": "61e7b0f2ef987714b88eda54633c7769182f438d6c0ee0c2a431929c1e99d7a9",
+    "modelos/umap.joblib": "d5f8b53cc8cbc9f88d0d7de9ae78922baac0846a0e929a4a6753bfe6e7573d86",
+    "modelos/kmeans.joblib": "fdfbb2a301cc2147f4ac0a96d863e505b0df4113ef9e4cd1781c17c826ba5010",
+    "modelos/scaler.joblib": "e94c24d51e0109dc48f85bcc072dd72099540b0b8b59d9dbcadfcb13019bf879",
+    "modelos/metadatos.json": "f0f7d1cc064d2e0bad2185853f9a80197625c37df81a08c038f4b6c6b63cd042"
+  }
+}

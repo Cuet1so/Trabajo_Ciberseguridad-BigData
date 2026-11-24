@@ -1,0 +1,40 @@
+# Entornos virtuales (no subir a GitHub)
+.venv/
+venv/
+env/
+# Cachés y compilados Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+# IDE y archivos del sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+# Variables de entorno y secretos
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+# Salidas temporales
+*.log
+*.tmp
+# Se conservan los CSV, PDF y JSON sintéticos para la evaluación.
+# Bloqueo de una ejecución en curso y volcados de fallo
+.execution.lock
+**/.execution.lock
+*.core
+core.*
+# Copias automáticas y ejecuciones personales redundantes; la ejecución de referencia
+# en datos/, resultados/ y modelos/ SÍ forma parte de los entregables.
+historial/
+ejecuciones/
+# Comprobaciones visuales reproducibles pero descargas temporales
+playwright-report/
+test-results/
+# Credenciales locales habituales (no forman parte del experimento)
+.aws/
+*.pem
+*.key
